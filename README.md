@@ -1,6 +1,8 @@
 # TeamMate
 
-Submission for **HackOberfest Hack Day Dhaka**.
+[![Live Demo](https://img.shields.io/badge/Live-Demo-2ea44f?style=for-the-badge&logo=render)](https://hackoberfest-hack-day-dhaka.onrender.com/)
+
+Submission for **HackOberfest Hack Day Dhaka**. Live demo: https://hackoberfest-hack-day-dhaka.onrender.com/ (hosted on Render's free tier: the first load after it has been idle can take up to a minute, and data resets when the service restarts).
 
 TeamMate is a small web app for a hackathon team leader. You create a project, pick a few AI "teammates" (frontend, QA, docs, …), type one instruction in plain English, and the app splits it into tasks, assigns them, runs them, and shows you the files and test results that came out — with you approving the plan and answering questions along the way.
 
