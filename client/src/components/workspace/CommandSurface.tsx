@@ -3,7 +3,8 @@ import { Link } from 'react-router';
 import { Loader2, Send, Sparkles } from 'lucide-react';
 import { api } from '../../api';
 import { timeAgo } from '../../hooks';
-import { ErrorNote, ProviderBadge } from '../ui';
+import { ErrorNote } from '../ui';
+import { PlannerLine } from '../PlannerLine';
 import type { Command } from '../../../../shared/types';
 
 export const DEMO = 'Build a room availability interface, implement booking validation, test edge cases, and document the result.';
@@ -71,9 +72,8 @@ export function CommandSurface({ projectId, lock, hasAgents, onSent, latest, tas
           </div>
           <p className="mt-1 text-sm text-ink">“{latest.text}”</p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-mute">
-            <Sparkles className="h-3.5 w-3.5 text-accent-ink" aria-hidden /> Planned by
-            <ProviderBadge provider={latest.plannerProvider} />
-            <span>into {taskCount} task{taskCount === 1 ? '' : 's'}</span>
+            <PlannerLine provider={latest.plannerProvider} />
+            <span>· {taskCount} task{taskCount === 1 ? '' : 's'}</span>
           </div>
           {latest.plannerNote && <p className="mt-1 text-xs text-mute">{latest.plannerNote}</p>}
         </div>

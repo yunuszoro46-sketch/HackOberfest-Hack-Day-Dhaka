@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Check, Loader2, Lock, Pause, Play, X } from 'lucide-react';
 import { api } from '../api';
 import { ErrorNote, ProviderBadge, RoleChip } from './ui';
+import { PlannerLine } from './PlannerLine';
 import type { PendingDecision, ProjectSnapshot, Run, RunStatus } from '../../../shared/types';
 
 export const AWAITING = 'Awaiting plan approval';
@@ -65,8 +66,8 @@ export function PlanApproval({ s, onChange }: { s: ProjectSnapshot; onChange: ()
       <div className="mt-1 flex flex-wrap items-center gap-2">
         <h2 id="plan-h" className="text-sm font-semibold">Plan awaiting your approval</h2>
         <RunPill status={r.status} />
-        <ProviderBadge provider={r.plannerProvider} />
       </div>
+      <PlannerLine provider={r.plannerProvider} className="mt-2" />
       {cmd && <p className="mt-1 text-xs text-mute">For: “{cmd.text}”</p>}
       <p className="mt-1 text-xs text-mute">Nothing runs until you approve. Limits: {r.maxTasks} task runs, {Math.round(r.maxRuntimeMs / 60000)} min.</p>
       <ol className="mt-3 space-y-1.5">
@@ -122,6 +123,7 @@ export function RunControls({ s, onChange }: { s: ProjectSnapshot; onChange: () 
         <RunPill status={r.status} />
         <span className="text-sm" data-testid="run-progress">{done}/{tasks.length} tasks</span>
       </div>
+      <PlannerLine provider={r.plannerProvider} className="mt-2" />
       <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
         <div><dt className="text-mute">Elapsed / budget</dt><dd>{r.startedAt ? fmtDuration(elapsed) : 'not started'} / {fmtDuration(r.maxRuntimeMs)}</dd></div>
         <div><dt className="text-mute">Task runs / limit</dt><dd>{r.executed ?? 0} / {r.maxTasks}</dd></div>

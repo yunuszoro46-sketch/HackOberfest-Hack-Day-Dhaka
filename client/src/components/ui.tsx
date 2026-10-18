@@ -49,14 +49,14 @@ export function RoleChip({ role }: { role: AgentRole }) {
 }
 
 export function ProviderBadge({ provider }: { provider: string }) {
-  const isModel = provider === 'gemma';
+  const isModel = provider === 'gemma' || provider.startsWith('gemma:');
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-medium ${isModel ? 'border-violet-500/40 text-violet-300' : 'border-line text-mute'}`}
       title={isModel ? 'Produced by the Gemma model' : 'Produced by a deterministic role template — no model involved'}
     >
       <Bot className="h-3 w-3" aria-hidden />
-      {isModel ? 'gemma' : provider.startsWith('rules') ? provider : `${provider} · template`}
+      {isModel ? provider : provider.startsWith('rules (fallback') ? 'rules (fallback)' : provider.startsWith('rules') ? provider : `${provider} · template`}
     </span>
   );
 }

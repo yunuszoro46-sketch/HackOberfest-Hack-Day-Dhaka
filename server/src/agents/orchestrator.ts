@@ -14,6 +14,7 @@ import { ApiErr, notFound } from '../http/errors';
 import type { Providers } from '../providers';
 import type { PriorResult, RunResult } from '../providers/types';
 import { ToolBox } from '../tools/toolbox';
+import { GemmaError } from '../providers/gemma';
 import { rulePlan, type Plan } from './planner';
 import { ROLES } from './roles';
 
@@ -71,24 +72,31 @@ export class Orchestrator {
     const { planner } = this.providers;
     let plan: Plan;
     let plannerProvider: string;
+    let fallback: { reason: string; detail: string } | null = null;
     if (planner.name === 'mock') {
       plan = rulePlan(text, team);
       plannerProvider = 'rules';
     } else {
       try {
         plan = await planner.plan({ project, decisions, team, command: text });
-        plannerProvider = planner.name;
+        plannerProvider = planner.label ?? planner.name;
       } catch (err) {
+        // Only the short reason code is stored; never the key or a raw response body.
+        const reason = err instanceof GemmaError ? err.reason : 'UPSTREAM';
+        fallback = { reason, detail: err instanceof GemmaError ? err.message : 'planner error' };
         plan = rulePlan(text, team);
-        plannerProvider = `rules (fallback: ${planner.name} — ${(err as Error).message})`;
+        plannerProvider = `rules (fallback: ${planner.name} ${reason})`;
       }
     }
     if (plan.tasks.length === 0) throw new ApiErr('EMPTY_PLAN', 'Could not find any work in that command. Try describing what to build, test or document.');
 
-    const plannerLabel = plannerProvider === 'gemma' ? 'Gemma planner' : plannerProvider === 'rules' ? 'Rule planner' : 'Rule planner (fallback)';
+    const plannerLabel = plannerProvider.startsWith('gemma') ? 'Gemma planner' : plannerProvider === 'rules' ? 'Rule planner' : 'Rule planner (fallback)';
     const { command, tasks, run } = this.repo.db.transaction(() => {
       const command = this.repo.createCommand(projectId, text, plannerProvider, plan.note);
       this.repo.logActivity(projectId, null, 'command_received', 'leader', `Command: "${text}"`, { commandId: command.id });
+      if (fallback) {
+        this.repo.logActivity(projectId, null, 'planner.fallback', 'system', `Gemma planner unavailable (${fallback.reason}: ${fallback.detail}); the rule-based planner made this plan`, { commandId: command.id, reason: fallback.reason, provider: planner.name });
+      }
       const run = this.repo.createSupRun({
         projectId, commandId: command.id, maxTasks: limits.maxTasks ?? DEFAULT_MAX_TASKS, maxRuntimeMs: limits.maxRuntimeMs ?? DEFAULT_MAX_RUNTIME_MS,
         plannerProvider, provider: this.providers.runner.name,

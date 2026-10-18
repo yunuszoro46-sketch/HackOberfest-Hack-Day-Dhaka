@@ -11,7 +11,7 @@ const GROUP: Record<ActivityType, Exclude<Filter, 'all'> | null> = {
   project_created: null, agents_updated: null, command_received: 'tasks', plan_created: 'tasks', task_created: 'tasks',
   task_status: 'tasks', run_started: 'tasks', run_finished: 'tasks', 'run.status': 'tasks', tool_call: 'tools',
   artifact_created: 'files', decision_added: 'decisions', leader_action: 'decisions', 'decision.requested': 'decisions',
-  'decision.resolved': 'decisions', 'agent.handoff': 'handoffs', system: null,
+  'decision.resolved': 'decisions', 'agent.handoff': 'handoffs', 'planner.fallback': 'tasks', system: null,
 };
 
 const ICON: Partial<Record<ActivityType, typeof Activity>> = {

@@ -1,4 +1,9 @@
 // GemmaProvider (D2): Gemma plans; execution stays with the MockProvider's real tool runs.
+//
+// Protocol: Google's native Gemini API (not the OpenAI-compatible endpoint):
+//   POST https://generativelanguage.googleapis.com/v1beta/models/<model>:generateContent
+//   key in the x-goog-api-key header (never in the URL), body {contents:[{parts:[{text}]}], generationConfig}.
+// Gemma does not support JSON mode (responseMimeType), so the reply text is parsed tolerantly.
 import { z } from 'zod';
 import { AGENT_ROLES } from '../../../shared/types';
 import type { Plan } from '../agents/planner';
@@ -8,28 +13,59 @@ import type { AgentProvider, PlanContext, RunContext, RunResult } from './types'
 import type { ToolBox } from '../tools/toolbox';
 
 export const GEMMA_TIMEOUT_MS = 12_000;
+export const DEFAULT_GEMMA_MODEL = 'gemma-3-27b-it';
 
-const PlanSchema = z.object({
-  tasks: z
-    .array(
-      z.object({
-        role: z.enum(AGENT_ROLES),
-        title: z.string().trim().min(1).max(200),
-        description: z.string().trim().max(2000).default(''),
-      }),
-    )
-    .min(1)
-    .max(12),
-  note: z.string().max(1000).default(''),
-});
+/** Short, safe reasons stored on the command. Never contains the key or a raw response body. */
+export type GemmaFailure = 'AUTH' | 'RATE_LIMIT' | 'TIMEOUT' | 'BAD_JSON' | 'SCHEMA' | 'MODEL_NOT_FOUND' | 'NETWORK' | 'UPSTREAM';
 
-/** Gemma doesn't support JSON mode, so take the text, strip fences, and parse the first {...} block. */
+export class GemmaError extends Error {
+  readonly reason: GemmaFailure;
+  constructor(reason: GemmaFailure, detail: string) {
+    super(detail);
+    this.reason = reason;
+  }
+}
+
+const TaskSchema = z
+  .object({
+    role: z.enum(AGENT_ROLES),
+    title: z.string().trim().min(1).max(120),
+    description: z.string().trim().max(2000).default(''),
+    /** Optional 0-based indexes of earlier tasks in this plan. Validated, then ignored: execution is sequential. */
+    dependsOn: z.array(z.number().int().min(0)).max(12).optional(),
+  })
+  .strict();
+
+const PlanSchema = z
+  .object({ tasks: z.array(TaskSchema).min(1).max(12), note: z.string().max(1000).default('') })
+  .strict()
+  .superRefine((plan, ctx) => {
+    plan.tasks.forEach((t, i) => {
+      for (const d of t.dependsOn ?? []) {
+        if (d >= plan.tasks.length || d === i) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `task ${i} depends on ${d}, which is not another task in this plan` });
+      }
+    });
+  });
+
+/** Strip ``` fences and return the first balanced {...} block (string-aware), parsed. */
 export function parseLooseJson(text: string): unknown {
-  const unfenced = text.replace(/```(?:json)?/gi, '');
-  const start = unfenced.indexOf('{');
-  const end = unfenced.lastIndexOf('}');
-  if (start === -1 || end <= start) throw new Error('no JSON object in model output');
-  return JSON.parse(unfenced.slice(start, end + 1));
+  const s = text.replace(/```(?:json)?/gi, '');
+  const start = s.indexOf('{');
+  if (start === -1) throw new Error('no JSON object in model output');
+  let depth = 0;
+  let inString = false;
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i];
+    if (inString) {
+      if (ch === '\\') i++;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}' && --depth === 0) return JSON.parse(s.slice(start, i + 1));
+  }
+  throw new Error('unterminated JSON object in model output');
 }
 
 export function buildPlanPrompt(ctx: PlanContext): string {
@@ -43,40 +79,49 @@ Constraints: ${ctx.project.constraints || '(none)'}
 Decisions:
 ${decisions}
 
-Team members (role id: title — responsibilities):
+Roles on the team (role id: title — responsibilities):
 ${team}
 
 Leader's command: """${ctx.command}"""
 
 Rules:
 - One task per distinct piece of work, in the order it should be done. Testing comes after building; documentation comes last.
-- role must be one of: frontend, backend, aiml, qa, researcher, docs. Use the best-fitting role even if it is not on the team.
-- Titles are short imperative phrases (max 8 words).
+- role must be one of: ${AGENT_ROLES.join(', ')}. Use the best-fitting role. Roles not on the team may still be assigned; they will be blocked for the leader.
+- 1 to 12 tasks. Titles are short imperative phrases (max 120 characters). Descriptions max 2000 characters.
+- dependsOn is optional: 0-based indexes of earlier tasks in this same list.
 
-Reply with ONLY this JSON, no prose:
-{"tasks":[{"role":"frontend","title":"...","description":"..."}],"note":"one sentence explaining the split"}`;
+Reply with ONLY this JSON object, no prose and no extra keys:
+{"tasks":[{"role":"frontend","title":"...","description":"...","dependsOn":[]}],"note":"one sentence explaining the split"}`;
 }
 
 export class GemmaProvider implements AgentProvider {
   readonly name = 'gemma';
+  readonly model: string;
   private readonly apiKey: string;
-  private readonly model: string;
   private readonly fetchImpl: typeof fetch;
+  private readonly timeoutMs: number;
   private readonly runner = new MockProvider();
 
-  constructor(opts: { apiKey?: string; model?: string; fetchImpl?: typeof fetch } = {}) {
+  constructor(opts: { apiKey?: string; model?: string; fetchImpl?: typeof fetch; timeoutMs?: number } = {}) {
     this.apiKey = opts.apiKey ?? process.env.GEMMA_API_KEY ?? '';
-    this.model = opts.model ?? process.env.GEMMA_MODEL ?? 'gemma-3-27b-it';
+    this.model = opts.model ?? process.env.GEMMA_MODEL ?? DEFAULT_GEMMA_MODEL;
     this.fetchImpl = opts.fetchImpl ?? fetch;
+    this.timeoutMs = opts.timeoutMs ?? GEMMA_TIMEOUT_MS;
+  }
+
+  /** Recorded as plannerProvider on success, e.g. "gemma:gemma-3-27b-it". */
+  get label(): string {
+    return `gemma:${this.model}`;
   }
 
   async plan(ctx: PlanContext): Promise<Plan> {
-    if (!this.apiKey) throw new Error('GEMMA_API_KEY is not set');
+    if (!this.apiKey) throw new GemmaError('AUTH', 'GEMMA_API_KEY is not set');
     const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), GEMMA_TIMEOUT_MS);
+    const timer = setTimeout(() => ac.abort(), this.timeoutMs);
+    let res: Response;
     try {
       // Key goes in a header, never the URL (URLs end up in proxy/access logs).
-      const res = await this.fetchImpl(
+      res = await this.fetchImpl(
         `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.model)}:generateContent`,
         {
           method: 'POST',
@@ -85,19 +130,37 @@ export class GemmaProvider implements AgentProvider {
           body: JSON.stringify({ contents: [{ parts: [{ text: buildPlanPrompt(ctx) }] }], generationConfig: { temperature: 0.2 } }),
         },
       );
-      if (!res.ok) throw new Error(`Gemma HTTP ${res.status}`);
-      const body = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-      const text = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
-      if (!text.trim()) throw new Error('Gemma returned no text');
-      const parsed = PlanSchema.safeParse(parseLooseJson(text));
-      if (!parsed.success) throw new Error(`Gemma plan failed validation: ${parsed.error.issues[0]?.message ?? 'invalid'}`);
-      return { tasks: parsed.data.tasks, note: parsed.data.note || 'Planned by Gemma.' };
     } catch (err) {
-      if ((err as Error).name === 'AbortError') throw new Error(`Gemma timed out after ${GEMMA_TIMEOUT_MS / 1000}s`);
-      throw err;
-    } finally {
       clearTimeout(timer);
+      if ((err as Error).name === 'AbortError' || ac.signal.aborted) throw new GemmaError('TIMEOUT', `no response within ${this.timeoutMs / 1000}s`);
+      throw new GemmaError('NETWORK', 'request failed before a response');
     }
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      const reason: GemmaFailure = res.status === 401 || res.status === 403 ? 'AUTH' : res.status === 429 ? 'RATE_LIMIT' : res.status === 404 ? 'MODEL_NOT_FOUND' : 'UPSTREAM';
+      throw new GemmaError(reason, `HTTP ${res.status}`);
+    }
+
+    let text: string;
+    try {
+      const body = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+      text = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+    } catch {
+      throw new GemmaError('BAD_JSON', 'response body was not JSON');
+    }
+    let raw: unknown;
+    try {
+      raw = parseLooseJson(text);
+    } catch {
+      throw new GemmaError('BAD_JSON', 'no parseable JSON object in the model reply');
+    }
+    const parsed = PlanSchema.safeParse(raw);
+    if (!parsed.success) throw new GemmaError('SCHEMA', parsed.error.issues[0]?.message ?? 'plan did not match the schema');
+    return {
+      tasks: parsed.data.tasks.map(({ role, title, description }) => ({ role, title, description })),
+      note: parsed.data.note || 'Planned by Gemma.',
+    };
   }
 
   /** Execution is not model-driven yet; runs are done (and labelled) by the mock role templates. */

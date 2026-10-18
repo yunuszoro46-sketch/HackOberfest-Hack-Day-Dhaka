@@ -203,6 +203,7 @@ export type ActivityType =
   | 'decision.requested'
   | 'decision.resolved'
   | 'agent.handoff'
+  | 'planner.fallback'
   | 'system';
 
 export interface ActivityEvent {

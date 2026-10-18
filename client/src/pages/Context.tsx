@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router';
 import { ArrowLeft, Loader2, Plus, ScrollText, Target } from 'lucide-react';
 import { api } from '../api';
 import { timeAgo, useAsync } from '../hooks';
-import { AsyncState, ErrorNote, ProviderBadge } from '../components/ui';
+import { AsyncState, ErrorNote } from '../components/ui';
+import { PlannerLine } from '../components/PlannerLine';
 
 export default function Context() {
   const { id = '' } = useParams();
@@ -76,7 +77,7 @@ export default function Context() {
                   {s.commands.map((c) => (
                     <li key={c.id} className="rounded-lg border border-line bg-bg p-3">
                       <p className="text-sm">“{c.text}”</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-2xs text-mute"><ProviderBadge provider={c.plannerProvider} /> {timeAgo(c.createdAt)}</div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-2xs text-mute"><PlannerLine provider={c.plannerProvider} /> {timeAgo(c.createdAt)}</div>
                       {c.plannerNote && <p className="mt-1 text-xs text-mute">{c.plannerNote}</p>}
                     </li>
                   ))}
