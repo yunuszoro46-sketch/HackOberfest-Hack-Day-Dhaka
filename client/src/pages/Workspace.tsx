@@ -8,7 +8,7 @@ import { api } from '../api';
 import { timeAgo, useAsync } from '../hooks';
 import { AsyncState, ErrorNote, ProviderBadge, ROLE_META, RoleChip, StatusBadge } from '../components/ui';
 import {
-  TASK_STATUSES, type ActivityEvent, type AgentRole, type Artifact, type Command, type ProjectSnapshot, type Task,
+  TASK_STATUSES, type ActivityEvent, type AgentRole, type AgentRun, type Artifact, type Command, type ProjectSnapshot, type Task,
 } from '../../../shared/types';
 
 const DEMO = 'Build a room availability interface, implement booking validation, test edge cases, and document the result.';
@@ -207,7 +207,7 @@ function Roster({ s }: { s: ProjectSnapshot }) {
   );
 }
 
-function Board({ s, onChange }: { s: ProjectSnapshot; onChange: () => void }) {
+function Board({ s, onChange }: { s: ProjectSnapshot; onChange: () => Promise<void> }) {
   const [error, setError] = useState<string | null>(null);
   const artifactsByTask = useMemo(() => {
     const m = new Map<string, Artifact[]>();
@@ -219,7 +219,7 @@ function Board({ s, onChange }: { s: ProjectSnapshot; onChange: () => void }) {
     setError(null);
     try {
       await fn();
-      onChange();
+      await onChange();
     } catch (e) {
       setError((e as Error).message);
     }
@@ -252,7 +252,10 @@ function Board({ s, onChange }: { s: ProjectSnapshot; onChange: () => void }) {
                 </div>
                 <div className="mt-1 space-y-2">
                   {tasks.length === 0 && <p className="px-1.5 py-2 text-xs text-mute">None</p>}
-                  {tasks.map((t) => <TaskCard key={t.id} t={t} artifacts={artifactsByTask.get(t.id) ?? []} act={act} />)}
+                  {tasks.map((t) => (
+                    <TaskCard key={t.id} t={t} artifacts={artifactsByTask.get(t.id) ?? []} act={act} projectId={s.project.id}
+                      run={s.runs.filter((r) => r.taskId === t.id).at(-1)} onTeam={s.agents.some((a) => a.role === t.role)} />
+                  ))}
                 </div>
               </section>
             );
@@ -263,8 +266,15 @@ function Board({ s, onChange }: { s: ProjectSnapshot; onChange: () => void }) {
   );
 }
 
-function TaskCard({ t, artifacts, act }: { t: Task; artifacts: Artifact[]; act: (fn: () => Promise<unknown>) => void }) {
+function TaskCard({ t, artifacts, act, run, onTeam, projectId }: {
+  t: Task; artifacts: Artifact[]; act: (fn: () => Promise<unknown>) => Promise<void>; run?: AgentRun; onTeam: boolean; projectId: string;
+}) {
   const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const go = async (fn: () => Promise<unknown>) => {
+    setPending(true);
+    try { await act(fn); } finally { setPending(false); }
+  };
   const latest = useMemo(() => {
     const m = new Map<string, Artifact>();
     for (const a of artifacts) m.set(a.path, a);
@@ -275,6 +285,7 @@ function TaskCard({ t, artifacts, act }: { t: Task; artifacts: Artifact[]; act: 
       <div className="flex items-center gap-2">
         <RoleChip role={t.role} />
         {t.attempts > 0 && <span className="text-2xs text-mute">attempt {t.attempts}</span>}
+        {run && <span className="ml-auto"><ProviderBadge provider={run.provider} /></span>}
       </div>
       <h3 className="mt-1.5 text-sm font-medium leading-snug">{t.title}</h3>
       {t.status === 'IN_PROGRESS' && <p className="mt-1 flex items-center gap-1.5 text-xs text-indigo-300"><Loader2 className="h-3 w-3 animate-spin" aria-hidden /> Working…</p>}
@@ -283,18 +294,23 @@ function TaskCard({ t, artifacts, act }: { t: Task; artifacts: Artifact[]; act: 
       {(t.status === 'REVIEW' || t.status === 'COMPLETED') && t.summary && <p className="mt-1 line-clamp-3 text-xs text-mute">{t.summary}</p>}
       <div className="mt-2.5 flex flex-wrap gap-1.5">
         {t.status === 'REVIEW' && (
-          <button className="btn-sm btn border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10" onClick={() => act(() => api.patchTask(t.id, { status: 'COMPLETED' }))}>
-            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden /> Approve
+          <button className="btn-sm btn border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10" disabled={pending} onClick={() => go(() => api.patchTask(t.id, { status: 'COMPLETED' }))}>
+            {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />} Approve
           </button>
         )}
-        {t.status === 'BLOCKED' && (
-          <button className="btn-sm btn border border-amber-500/40 text-amber-300 hover:bg-amber-500/10" onClick={() => act(() => api.patchTask(t.id, { status: 'QUEUED' }))}>
-            <Play className="h-3.5 w-3.5" aria-hidden /> Unblock
+        {t.status === 'BLOCKED' && onTeam && (
+          <button className="btn-sm btn border border-amber-500/40 text-amber-300 hover:bg-amber-500/10" disabled={pending} onClick={() => go(() => api.patchTask(t.id, { status: 'QUEUED' }))}>
+            {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />} Unblock
           </button>
+        )}
+        {t.status === 'BLOCKED' && !onTeam && (
+          <Link to={`/projects/${projectId}/agents`} className="btn-sm btn border border-amber-500/40 text-amber-300 hover:bg-amber-500/10">
+            <Users className="h-3.5 w-3.5" aria-hidden /> Add {ROLE_META[t.role].short} to team
+          </Link>
         )}
         {t.status === 'FAILED' && (
-          <button className="btn-sm btn border border-rose-500/40 text-rose-300 hover:bg-rose-500/10" onClick={() => act(() => api.retry(t.id))}>
-            <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Retry
+          <button className="btn-sm btn border border-rose-500/40 text-rose-300 hover:bg-rose-500/10" disabled={pending} onClick={() => go(() => api.retry(t.id))}>
+            {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <RotateCcw className="h-3.5 w-3.5" aria-hidden />} Retry
           </button>
         )}
         {latest.length > 0 && (
