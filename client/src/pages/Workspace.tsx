@@ -59,7 +59,7 @@ export default function Workspace() {
 
       {s.pendingDecisions.length > 0 && (
         <section className="mb-4 space-y-3" aria-labelledby="ws-inbox-h" data-testid="decision-inbox">
-          <h2 id="ws-inbox-h" className="flex items-center gap-2 text-sm font-medium text-amber-300"><Inbox className="h-4 w-4" aria-hidden /> {s.pendingDecisions.length} decision{s.pendingDecisions.length === 1 ? '' : 's'} need you — the run is paused</h2>
+          <h2 id="ws-inbox-h" className="flex items-center gap-2 text-sm font-medium text-amber-300"><Inbox className="h-4 w-4" aria-hidden /> {s.pendingDecisions.length === 1 ? '1 decision needs' : `${s.pendingDecisions.length} decisions need`} you — the run is paused</h2>
           {s.pendingDecisions.map((d) => <DecisionCard key={d.id} d={d} title={s.tasks.find((t) => t.id === d.taskId)?.title} onChange={snap.reload} />)}
         </section>
       )}
