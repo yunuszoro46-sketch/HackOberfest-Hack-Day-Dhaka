@@ -60,7 +60,7 @@ export default function Workspace() {
       <div className="mt-4 flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 lg:hidden" role="tablist" aria-label="Workspace sections">
         {tabs.map((t) => (
           <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium ${tab === t.key ? 'bg-surface-2 text-ink' : 'text-mute'}`}>
+            className={`flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium ${tab === t.key ? 'bg-surface-2 text-ink' : 'text-mute'}`}>
             <t.icon className="h-3.5 w-3.5" aria-hidden /> {t.label}
           </button>
         ))}
@@ -132,7 +132,7 @@ function CommandBar({ projectId, hasAgents, onSent, latest, taskCount, commandCo
           <div className="flex flex-wrap items-center gap-2 text-2xs text-mute">
             <span className="font-medium uppercase tracking-wide">Leader's last command</span>
             <span>· {timeAgo(latest.createdAt)}</span>
-            {commandCount > 1 && <Link to={`/projects/${projectId}/context`} className="text-accent-ink hover:underline">all {commandCount} commands</Link>}
+            {commandCount > 1 && <Link to={`/projects/${projectId}/context`} className="inline-flex min-h-10 items-center text-accent-ink hover:underline sm:min-h-0">all {commandCount} commands</Link>}
           </div>
           <p className="mt-1 text-sm text-ink">“{latest.text}”</p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-mute">
@@ -200,7 +200,7 @@ function Roster({ s }: { s: ProjectSnapshot }) {
         <div className="border-t border-line px-4 py-3 text-xs">
           <p className="mb-1.5 flex items-center gap-1 text-amber-300"><Lock className="h-3 w-3" aria-hidden /> Tasks waiting for:</p>
           {missing.map((r) => <p key={r} className="text-mute">{ROLE_TITLES[r]}</p>)}
-          <Link to={`/projects/${s.project.id}/agents`} className="mt-2 inline-block text-accent-ink underline">Add to team</Link>
+          <Link to={`/projects/${s.project.id}/agents`} className="mt-2 inline-flex min-h-10 items-center text-accent-ink underline sm:min-h-0">Add to team</Link>
         </div>
       )}
     </div>
@@ -322,7 +322,7 @@ function TaskCard({ t, artifacts, act, run, onTeam, projectId }: {
       {open && (
         <ul className="mt-2 space-y-1">
           {latest.map((a) => (
-            <li key={a.id}><Link to={`/artifacts/${a.id}`} className="block truncate font-mono text-2xs text-accent-ink hover:underline">{a.path}</Link></li>
+            <li key={a.id}><Link to={`/artifacts/${a.id}`} className="block truncate py-3 font-mono text-2xs text-accent-ink hover:underline sm:py-0.5">{a.path}</Link></li>
           ))}
         </ul>
       )}
