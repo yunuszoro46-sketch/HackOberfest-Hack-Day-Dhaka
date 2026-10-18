@@ -38,3 +38,12 @@ body {
 @utility btn-sm { @apply px-2.5 py-1 text-xs; }
 @utility input { @apply w-full rounded-lg border border-line bg-bg px-3 py-2 text-sm text-ink placeholder:text-mute focus:border-accent focus:outline-none; }
 @utility label { @apply mb-1.5 block text-sm font-medium text-ink; }
+
+/* Respect reduced-motion: no pulsing dots or spinners, instant transitions. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

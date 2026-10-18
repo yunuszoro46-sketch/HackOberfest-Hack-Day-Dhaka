@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { AlertTriangle, Code2, Cpu, FileText, FlaskConical, Loader2, Search, Server, Bot } from 'lucide-react';
+import { AlertTriangle, Code2, Cpu, FileText, FlaskConical, Loader2, Search, Server, Bot, Clock, Play, Lock, Eye, CheckCircle2, XCircle } from 'lucide-react';
 import type { AgentRole, TaskStatus } from '../../../shared/types';
 
 export const STATUS_STYLE: Record<TaskStatus, { label: string; cls: string; dot: string }> = {
@@ -12,11 +12,17 @@ export const STATUS_STYLE: Record<TaskStatus, { label: string; cls: string; dot:
   FAILED: { label: 'Failed', cls: 'bg-rose-500/15 text-rose-300 border-rose-500/30', dot: 'bg-rose-400' },
 };
 
+const STATUS_ICON: Record<TaskStatus, typeof Clock> = {
+  QUEUED: Clock, IN_PROGRESS: Play, BLOCKED: Lock, REVIEW: Eye, COMPLETED: CheckCircle2, FAILED: XCircle,
+};
+
+/** Status = colour + icon + text label, so it never depends on colour alone. */
 export function StatusBadge({ status }: { status: TaskStatus }) {
   const s = STATUS_STYLE[status];
+  const Icon = STATUS_ICON[status];
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-2xs font-medium ${s.cls}`} data-status={status}>
-      <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} aria-hidden />
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-medium ${s.cls}`} data-status={status}>
+      <Icon className={`h-3 w-3 ${status === 'IN_PROGRESS' ? 'animate-pulse' : ''}`} aria-hidden />
       {s.label}
     </span>
   );
