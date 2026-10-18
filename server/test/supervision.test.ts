@@ -136,3 +136,19 @@ describe('failure decisions', () => {
     a.db.close();
   });
 });
+
+describe('handoff', () => {
+  it('after the first task, a handoff is addressed to the next role', async () => {
+    const a = makeApp();
+    const pid = await createDemoProject(a.http);
+    await commandAndRun(a, pid, DEMO_COMMAND);
+    const [first, second, third] = a.repo.listTasks(pid);
+    const handoffs = a.repo.listHandoffs(pid);
+    expect(handoffs[0]).toMatchObject({ kind: 'handoff', author: 'Frontend Engineer', toRole: 'frontend', taskId: second.id, provider: 'mock' });
+    expect(handoffs[0].body).toMatch(/^Artifacts ready: src\/booking\.ts, src\/RoomAvailability\.tsx\. Summary: Wrote /);
+    expect(handoffs[1]).toMatchObject({ toRole: 'qa', taskId: third.id });
+    expect((await a.http.get(`/api/tasks/${second.id}`)).body.messages.some((m: any) => m.kind === 'handoff')).toBe(true);
+    void first;
+    a.db.close();
+  });
+});

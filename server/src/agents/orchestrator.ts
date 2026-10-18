@@ -146,6 +146,19 @@ export class Orchestrator {
     this.settleRuns(projectId);
   }
 
+  /** Structured handoff to the next queued task of the same run (execution is sequential; no free-form chat). */
+  private handoff(task: Task, agentRunId: string, summary: string): void {
+    const next = this.repo.listTasks(task.projectId).find((t) => t.runId === task.runId && t.status === 'QUEUED');
+    if (!next) return;
+    const paths = this.repo.artifactsForRun(agentRunId).map((a) => a.path);
+    const provider = this.providers.runner.name;
+    const body = `Artifacts ready: ${paths.length ? paths.join(', ') : '(none)'}. Summary: ${summary}`;
+    this.repo.addMessage(task.projectId, next.id, ROLES[task.role].title, body, { kind: 'handoff', toRole: next.role, provider });
+    this.repo.logActivity(task.projectId, next.id, 'agent.handoff', ROLES[task.role].title, `Handoff to ${ROLES[next.role].title} ("${next.title}"): ${body}`, {
+      fromTaskId: task.id, toTaskId: next.id, toRole: next.role, paths, provider,
+    });
+  }
+
   /** Re-reads the run before every claim: only RUNNING runs within their task and time budget may claim. */
   private claimWithinBudget(projectId: string): Task | null {
     for (;;) {
@@ -360,6 +373,7 @@ export class Orchestrator {
     const moved = this.repo.transition(task.id, 'IN_PROGRESS', to, result.ok ? { summary: result.summary, lastError: null } : { lastError: result.error ?? 'failed' });
     if (moved) {
       this.repo.logActivity(task.projectId, task.id, 'task_status', role.title, `"${task.title}" → ${to}${result.ok ? '' : `: ${result.error}`}`, { from: 'IN_PROGRESS', to });
+      if (to === 'REVIEW' && task.runId) this.handoff(task, run.id, result.summary);
     } else {
       this.repo.logActivity(task.projectId, task.id, 'system', 'system', `Run finished but "${task.title}" was moved by the leader meanwhile; result kept, status unchanged.`);
     }
