@@ -30,6 +30,8 @@ We wanted to try the other shape: AI teammates that receive assigned tasks, writ
 - **Run limits.** Each run has a task limit (default 12 task runs) and a time limit (default 2 hours). Hitting one stops the run with a "Budget exhausted" message.
 - **Failure decisions.** A failed task pauses the run and opens a retry/skip decision card in an in-app inbox (no push notifications).
 - **Handoffs.** When a task finishes, a short message goes to the next teammate: which files are ready and a summary.
+- **Mission map.** The workspace draws the leader, each agent's real task assignments and status, and dashed links only for handoff messages that were actually recorded. Tasks run in planner order; there is no dependency graph, and the map says so.
+- **Activity stream and QA inspector.** Timestamped events with filters (tasks, tools, handoffs, decisions, files). The QA report view lists every check with its raw command output, and failed checks open automatically.
 - **Mobile supervise page** at `/projects/:id/supervise`, built for a 375px-wide phone screen.
 - **Survives restarts.** State is in SQLite. If the server stops mid-task, that task is marked `FAILED ("Interrupted by restart")` on the next start, and running runs pick up their queued work again.
 - **Honest labels.** Output from the built-in templates is marked `mock · template` everywhere in the UI; nothing claims a model wrote it.

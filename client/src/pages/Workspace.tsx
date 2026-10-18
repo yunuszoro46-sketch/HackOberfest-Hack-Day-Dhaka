@@ -59,7 +59,7 @@ export default function Workspace() {
           {run && run.status !== 'AWAITING_APPROVAL' && (
             <section className={`card border-l-4 p-4 ${run.status === 'RUNNING' ? 'border-l-indigo-400' : run.status === 'PAUSED' ? 'border-l-violet-400' : 'border-l-line'}`} aria-labelledby="run-h" data-testid="run-panel">
               <div className="mb-2 flex items-center gap-2">
-                <h2 id="run-h" className="kicker">Executing run</h2>
+                <h2 id="run-h" className="kicker">{run.status === 'RUNNING' ? 'Executing run' : run.status === 'PAUSED' ? 'Paused run' : 'Last run'}</h2>
                 <Link to={`/projects/${id}/supervise`} className="ml-auto inline-flex min-h-10 items-center text-xs text-accent-ink hover:underline sm:min-h-0">Supervise →</Link>
               </div>
               <RunControls s={s} onChange={snap.reload} />
