@@ -135,6 +135,7 @@ export class Orchestrator {
     this.repo.logActivity(task.projectId, task.id, 'task_status', role.title, `"${task.title}" → IN_PROGRESS (attempt ${task.attempts})`, { from: 'QUEUED', to: 'IN_PROGRESS' });
     this.repo.logActivity(task.projectId, task.id, 'run_started', role.title, `${role.title} started "${task.title}" (provider: ${runner.name})`, { runId: run.id, provider: runner.name });
 
+    this.restoreWorkspace(task.projectId);
     const tools = new ToolBox(this.workspaceFor(task.projectId), role.tools, (tool, summary, data) =>
       this.repo.logActivity(task.projectId, task.id, 'tool_call', role.title, summary, { tool, runId: run.id, ...data }),
     );
@@ -187,6 +188,25 @@ export class Orchestrator {
       this.repo.logActivity(task.projectId, task.id, 'system', 'system', `Run finished but "${task.title}" was moved by the leader meanwhile; result kept, status unchanged.`);
     }
     this.repo.logActivity(task.projectId, task.id, 'run_finished', role.title, `${role.title} ${result.ok ? 'finished' : 'failed'} "${task.title}"`, { runId: run.id, ok: result.ok });
+  }
+
+  /** The DB is the source of truth: re-create any workspace file that went missing (latest version per path). */
+  restoreWorkspace(projectId: string): number {
+    const root = this.workspaceFor(projectId);
+    const rows = this.repo.db
+      .prepare('SELECT path, content FROM artifacts WHERE project_id = ? ORDER BY created_at, rowid')
+      .all(projectId) as { path: string; content: string }[];
+    const latest = new Map(rows.map((r) => [r.path, r.content]));
+    let restored = 0;
+    for (const [rel, content] of latest) {
+      const full = path.resolve(root, rel);
+      if (!full.startsWith(path.resolve(root) + path.sep) || fs.existsSync(full)) continue;
+      fs.mkdirSync(path.dirname(full), { recursive: true });
+      fs.writeFileSync(full, content);
+      restored++;
+    }
+    if (restored) this.repo.logActivity(projectId, null, 'system', 'system', `Restored ${restored} workspace file(s) from the database`);
+    return restored;
   }
 
   /** Summaries + artifact contents of finished teammates' work, passed to the next agent (D8). */
