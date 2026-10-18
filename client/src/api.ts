@@ -1,5 +1,5 @@
 import type {
-  ActivityEvent, ArtifactDetail, CommandResponse, Decision, Project, ProjectAgent, ProjectSnapshot,
+  ActivityEvent, Artifact, ArtifactDetail, CommandResponse, Decision, Project, ProjectAgent, ProjectSnapshot,
   RoleDefinition, Task, TaskDetail, TaskStatus, AgentRole, Run, PendingDecision, DecisionAction,
 } from '../../shared/types';
 
@@ -45,6 +45,7 @@ export const api = {
   task: (id: string) => req<TaskDetail>('GET', `/api/tasks/${id}`),
   patchTask: (id: string, b: { status?: TaskStatus; blockedReason?: string; note?: string }) => req<Task>('PATCH', `/api/tasks/${id}`, b),
   retry: (id: string) => req<Task>('POST', `/api/tasks/${id}/retry`),
+  artifacts: (projectId: string) => req<Artifact[]>('GET', `/api/projects/${projectId}/artifacts`),
   artifact: (id: string) => req<ArtifactDetail>('GET', `/api/artifacts/${id}`),
   approveRun: (id: string) => req<Run>('POST', `/api/runs/${id}/approve`),
   pauseRun: (id: string) => req<Run>('POST', `/api/runs/${id}/pause`),
