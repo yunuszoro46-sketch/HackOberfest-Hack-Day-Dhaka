@@ -3,7 +3,9 @@
 /*
  * Design tokens. Source: ui-ux-pro-max --design-system ("autonomous AI agent command center … dark cinematic
  * real-time SaaS React") + targeted searches. Adopted: GitHub-dark neutrals (#0D1117 bg, #30363D border,
- * #E6EDF3 fg, #94A3B8 muted fg, #25292F muted), Inter UI + JetBrains Mono data type, fine line work,
+ * #E6EDF3 fg, #94A3B8 muted fg, #25292F muted), fine line work, run-green #22C55E for live only.
+ * Pass 2 search ("AI agent team command center … developer tool real-time"): Dark Mode (OLED), 'Code dark +
+ * run green', JetBrains Mono / IBM Plex Sans → IBM Plex Sans UI + JetBrains Mono data. Earlier notes:
  * run-green #22C55E for "live" only (Developer Tool palette). Not adopted: the #00FF41 neon-green primary
  * and glow/scan effects (skill flags HUD/FUI accessibility risk as high; brief asks for restrained accents).
  */
@@ -14,6 +16,9 @@
   --color-muted: #25292f;
   --color-line: #30363d;
   --color-line-soft: #21262d;
+  /* Form-field edges must reach 3:1 against the background (WCAG 1.4.11): #64748b = 3.98:1.
+     (The skill's #475569 border is 2.50:1, so it is used for nothing interactive.) */
+  --color-field: #64748b;
   --color-ink: #e6edf3;
   --color-mute: #94a3b8;
   --color-accent: #6366f1;
@@ -26,7 +31,7 @@
   /* App type scale: 2xs 11px · xs 12px · sm 14px · xl 20px · 2xl 24px (landing hero excepted). */
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "IBM Plex Sans", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   /* Motion tokens: feedback stays quick; one ambient animation (in-progress pulse) per view. */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -53,7 +58,7 @@ button:not(:disabled), a[href], [role=tab], summary { cursor: pointer; }
 @utility btn-secondary { @apply btn border border-line bg-surface-2 text-ink hover:border-accent/60; }
 @utility btn-ghost { @apply btn text-mute hover:bg-surface-2 hover:text-ink; }
 @utility btn-sm { @apply px-2.5 py-1 text-xs; }
-@utility input { @apply w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-ink placeholder:text-mute focus:border-accent focus:outline-none; }
+@utility input { @apply w-full rounded-md border border-field bg-bg px-3 py-2 text-sm text-ink placeholder:text-mute focus:border-accent focus:outline-none; }
 @utility label { @apply mb-1.5 block text-sm font-medium text-ink; }
 
 /* Respect reduced-motion: no pulsing dots or spinners, instant transitions. */
