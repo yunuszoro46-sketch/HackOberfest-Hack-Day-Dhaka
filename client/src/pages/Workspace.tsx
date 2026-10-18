@@ -66,7 +66,7 @@ export default function Workspace() {
         ))}
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-[230px_minmax(0,1fr)_320px]">
+      <div className="mt-4 grid gap-4 lg:grid-cols-[250px_minmax(0,1fr)_320px]">
         <aside className={show('team')}><Roster s={s} /></aside>
         <section className={`min-w-0 ${show('board')}`}><Board s={s} onChange={snap.reload} /></section>
         <aside className="min-w-0 space-y-4">
@@ -159,21 +159,38 @@ function Roster({ s }: { s: ProjectSnapshot }) {
             const working = mine.find((t) => t.status === 'IN_PROGRESS');
             const queued = mine.filter((t) => t.status === 'QUEUED').length;
             const blocked = mine.filter((t) => t.status === 'BLOCKED').length;
+            const lastRun = s.runs.filter((r) => r.role === a.role).at(-1);
+            const lastTask = working ?? (lastRun ? s.tasks.find((t) => t.id === lastRun.taskId) : undefined);
             const Icon = ROLE_META[a.role].icon;
             return (
               <li key={a.id} className="px-4 py-3" data-agent={a.role}>
                 <div className="flex items-center gap-2">
                   <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-md border ${ROLE_META[a.role].cls}`}><Icon className="h-3.5 w-3.5" aria-hidden /></span>
-                  <span className="truncate text-sm font-medium">{ROLE_TITLES[a.role]}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{ROLE_TITLES[a.role]}</span>
+                  {working
+                    ? <span className="flex items-center gap-1 text-2xs text-indigo-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-indigo-400" aria-hidden />Working</span>
+                    : <span className="text-2xs text-mute">Idle</span>}
                 </div>
-                <p className="mt-1.5 text-xs">
-                  {working ? (
-                    <span className="flex items-center gap-1.5 text-indigo-300"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-indigo-400" aria-hidden /> Working on “{working.title}”</span>
-                  ) : (
-                    <span className="text-mute">{queued ? `Idle · ${queued} queued` : 'Idle'}</span>
-                  )}
-                </p>
-                {blocked > 0 && <p className="mt-0.5 text-xs text-amber-300">{blocked} blocked</p>}
+                {lastTask ? (
+                  <div className="mt-2 rounded-md border border-line bg-bg px-2.5 py-2">
+                    <p className="text-2xs text-mute">{working ? 'Working on' : 'Last task'}</p>
+                    <p className="truncate text-xs text-ink" title={lastTask.title}>{lastTask.title}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <StatusBadge status={lastTask.status} />
+                      <span className="text-2xs text-mute">attempt {lastTask.attempts}</span>
+                      {lastRun && lastRun.taskId === lastTask.id && <ProviderBadge provider={lastRun.provider} />}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-1.5 text-xs text-mute">No tasks yet.</p>
+                )}
+                {(queued > 0 || blocked > 0) && (
+                  <p className="mt-1.5 text-2xs text-mute">
+                    {queued > 0 && <span>{queued} queued</span>}
+                    {queued > 0 && blocked > 0 && ' · '}
+                    {blocked > 0 && <span className="text-amber-300">{blocked} blocked</span>}
+                  </p>
+                )}
               </li>
             );
           })}
