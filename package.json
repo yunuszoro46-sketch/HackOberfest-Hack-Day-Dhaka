@@ -1,0 +1,21 @@
+{
+  "name": "teammate",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TeamMate — Don't just chat with AI. Build with AI teammates.",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c cyan,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client && npm run typecheck -w server",
+    "start": "npm run start -w server",
+    "test": "npm run test -w server",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "concurrently": "^10.0.6"
+  }
+}
