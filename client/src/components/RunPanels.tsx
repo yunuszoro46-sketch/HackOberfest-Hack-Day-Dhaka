@@ -60,8 +60,9 @@ export function PlanApproval({ s, onChange }: { s: ProjectSnapshot; onChange: ()
   const tasks = s.tasks.filter((t) => t.runId === r.id).sort((a, b) => a.position - b.position);
   const cmd = s.commands.find((c) => c.id === r.commandId);
   return (
-    <section className="card border-amber-500/40 p-4" aria-labelledby="plan-h" data-testid="plan-approval">
-      <div className="flex flex-wrap items-center gap-2">
+    <section className="card border-dashed border-amber-500/60 p-4" aria-labelledby="plan-h" data-testid="plan-approval">
+      <p className="kicker text-amber-300">Proposed plan · not running</p>
+      <div className="mt-1 flex flex-wrap items-center gap-2">
         <h2 id="plan-h" className="text-sm font-semibold">Plan awaiting your approval</h2>
         <RunPill status={r.status} />
         <ProviderBadge provider={r.plannerProvider} />
@@ -70,8 +71,8 @@ export function PlanApproval({ s, onChange }: { s: ProjectSnapshot; onChange: ()
       <p className="mt-1 text-xs text-mute">Nothing runs until you approve. Limits: {r.maxTasks} task runs, {Math.round(r.maxRuntimeMs / 60000)} min.</p>
       <ol className="mt-3 space-y-1.5">
         {tasks.map((t, i) => (
-          <li key={t.id} className="flex flex-wrap items-center gap-2 rounded-md border border-line bg-bg px-3 py-2 text-sm" data-plan-task={t.title}>
-            <span className="w-5 text-xs text-mute">{i + 1}.</span>
+          <li key={t.id} className="flex flex-wrap items-center gap-2 rounded-md border border-line-soft bg-bg px-3 py-2 text-sm" data-plan-task={t.title}>
+            <span className="w-6 font-mono text-xs text-mute">{String(i + 1).padStart(2, '0')}</span>
             <RoleChip role={t.role} />
             <span className="min-w-0 flex-1">{t.title}</span>
             {t.blockedReason && t.blockedReason !== AWAITING && (

@@ -5,6 +5,8 @@ export interface Async<T> {
   error: Error | null;
   loading: boolean;
   reload: () => Promise<void>;
+  /** Time of the last successful load (ms since epoch), for "updated Ns ago" / stale indicators. */
+  loadedAt: number | null;
 }
 
 /** Loads data, optionally polling. `interval` may change between renders (e.g. faster while busy). */
@@ -12,6 +14,7 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[], interval?: nu
   const [data, setData] = useState<T>();
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadedAt, setLoadedAt] = useState<number | null>(null);
   const fnRef = useRef(fn);
   fnRef.current = fn;
   const dataRef = useRef<T | undefined>(undefined);
@@ -22,6 +25,7 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[], interval?: nu
       dataRef.current = d;
       setData(d);
       setError(null);
+      setLoadedAt(Date.now());
     } catch (e) {
       setError(e as Error);
     } finally {
@@ -49,7 +53,7 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[], interval?: nu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
-  return { data, error, loading, reload };
+  return { data, error, loading, reload, loadedAt };
 }
 
 export function timeAgo(iso: string): string {
@@ -61,4 +65,18 @@ export function timeAgo(iso: string): string {
   const h = Math.round(m / 60);
   if (h < 24) return `${h}h ago`;
   return new Date(iso).toLocaleDateString();
+}
+
+/** Re-renders every `ms` so relative times stay current. */
+export function useNow(ms = 1000): number {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(id);
+  }, [ms]);
+  return now;
+}
+
+export function clock(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 }
