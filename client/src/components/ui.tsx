@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 import { AlertTriangle, Code2, Cpu, FileText, FlaskConical, Loader2, Search, Server, Bot } from 'lucide-react';
 import type { AgentRole, TaskStatus } from '../../../shared/types';
 
@@ -68,7 +69,9 @@ export function AsyncState({
       <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-200">
         <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden />
         <span className="flex-1">{error.message}</span>
-        {onRetry && <button className="btn-secondary btn-sm" onClick={onRetry}>Try again</button>}
+        {(error as { status?: number }).status === 404
+          ? <Link to="/dashboard" className="btn-secondary btn-sm">Go to dashboard</Link>
+          : onRetry && <button className="btn-secondary btn-sm" onClick={onRetry}>Try again</button>}
       </div>
     );
   if (empty) return <div className="p-6 text-center text-sm text-mute">{emptyText}</div>;
