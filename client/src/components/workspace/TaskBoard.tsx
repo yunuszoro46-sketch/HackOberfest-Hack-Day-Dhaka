@@ -4,7 +4,12 @@ import { AlertTriangle, CheckCircle2, FileCode2, Inbox, ListTodo, Loader2, Lock,
 import { api } from '../../api';
 import { ProviderBadge, ROLE_META, RoleChip, StatusBadge } from '../ui';
 import { AWAITING } from '../RunPanels';
-import { TASK_STATUSES, type AgentRun, type Artifact, type ProjectSnapshot, type Task } from '../../../../shared/types';
+import { TASK_STATUSES, type AgentRun, type Artifact, type ProjectSnapshot, type Task, type TaskStatus } from '../../../../shared/types';
+
+const LANE_EDGE: Record<TaskStatus, string> = {
+  QUEUED: 'border-t-slate-400', IN_PROGRESS: 'border-t-indigo-400', BLOCKED: 'border-t-amber-400',
+  REVIEW: 'border-t-violet-400', COMPLETED: 'border-t-emerald-400', FAILED: 'border-t-rose-400',
+};
 
 export function TaskBoard({ s, onChange }: { s: ProjectSnapshot; onChange: () => Promise<void> }) {
   const [error, setError] = useState<string | null>(null);
@@ -40,27 +45,39 @@ export function TaskBoard({ s, onChange }: { s: ProjectSnapshot; onChange: () =>
       {s.tasks.length === 0 ? (
         <div className="card p-8 text-center text-sm text-mute">No tasks yet. Send your team a command above.</div>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
-          {TASK_STATUSES.map((status) => {
-            const tasks = s.tasks.filter((t) => t.status === status);
-            return (
-              <section key={status} className="rounded-xl border border-line bg-surface/60 p-2" aria-label={`${status} tasks`} data-column={status}>
-                <div className="flex items-center justify-between px-1.5 py-1">
-                  <StatusBadge status={status} />
-                  <span className="text-xs text-mute">{tasks.length}</span>
-                </div>
-                <div className="mt-1 space-y-2">
-                  {tasks.length === 0 && <p className="px-1.5 py-2 text-xs text-mute">None</p>}
-                  {tasks.map((t) => (
-                    <TaskCard key={t.id} t={t} artifacts={artifactsByTask.get(t.id) ?? []} act={act} projectId={s.project.id}
-                      run={s.runs.filter((r) => r.taskId === t.id).at(-1)} onTeam={s.agents.some((a) => a.role === t.role)}
-                      decisionPending={s.pendingDecisions.some((d) => d.taskId === t.id)} />
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-        </div>
+        <>
+          {/* All six states always visible with label + count; only non-empty states get a column. */}
+          <ul className="mb-3 flex flex-wrap gap-1.5" aria-label="Tasks per status" data-testid="status-strip">
+            {TASK_STATUSES.map((status) => {
+              const n = s.tasks.filter((t) => t.status === status).length;
+              return (
+                <li key={status} className={`flex items-center gap-1.5 ${n ? '' : 'opacity-60'}`} data-status-count={status}>
+                  <StatusBadge status={status} /><span className="font-mono text-2xs text-ink">{n}</span>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+            {TASK_STATUSES.filter((status) => s.tasks.some((t) => t.status === status)).map((status) => {
+              const tasks = s.tasks.filter((t) => t.status === status);
+              return (
+                <section key={status} className={`rounded-lg border border-line border-t-2 bg-surface/60 p-2 ${LANE_EDGE[status]}`} aria-label={`${status} tasks`} data-column={status}>
+                  <div className="flex items-center justify-between px-1.5 py-1">
+                    <StatusBadge status={status} />
+                    <span className="font-mono text-xs text-mute">{tasks.length}</span>
+                  </div>
+                  <div className="mt-1 space-y-2">
+                    {tasks.map((t) => (
+                      <TaskCard key={t.id} t={t} artifacts={artifactsByTask.get(t.id) ?? []} act={act} projectId={s.project.id}
+                        run={s.runs.filter((r) => r.taskId === t.id).at(-1)} onTeam={s.agents.some((a) => a.role === t.role)}
+                        decisionPending={s.pendingDecisions.some((d) => d.taskId === t.id)} />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );
