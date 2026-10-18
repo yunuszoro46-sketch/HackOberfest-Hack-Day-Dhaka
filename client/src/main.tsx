@@ -11,6 +11,7 @@ import Workspace from './pages/Workspace';
 import Context from './pages/Context';
 import ArtifactView from './pages/ArtifactView';
 import NotFound from './pages/NotFound';
+import Supervise from './pages/Supervise';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/projects/:id/agents" element={<Agents />} />
           <Route path="/projects/:id" element={<Workspace />} />
           <Route path="/projects/:id/context" element={<Context />} />
+          <Route path="/projects/:id/supervise" element={<Supervise />} />
           <Route path="/artifacts/:id" element={<ArtifactView />} />
           <Route path="*" element={<NotFound />} />
         </Route>

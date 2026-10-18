@@ -1,6 +1,6 @@
 import type {
   ActivityEvent, ArtifactDetail, CommandResponse, Decision, Project, ProjectAgent, ProjectSnapshot,
-  RoleDefinition, Task, TaskDetail, TaskStatus, AgentRole,
+  RoleDefinition, Task, TaskDetail, TaskStatus, AgentRole, Run, PendingDecision, DecisionAction,
 } from '../../shared/types';
 
 export class ApiError extends Error {
@@ -46,5 +46,11 @@ export const api = {
   patchTask: (id: string, b: { status?: TaskStatus; blockedReason?: string; note?: string }) => req<Task>('PATCH', `/api/tasks/${id}`, b),
   retry: (id: string) => req<Task>('POST', `/api/tasks/${id}/retry`),
   artifact: (id: string) => req<ArtifactDetail>('GET', `/api/artifacts/${id}`),
+  approveRun: (id: string) => req<Run>('POST', `/api/runs/${id}/approve`),
+  pauseRun: (id: string) => req<Run>('POST', `/api/runs/${id}/pause`),
+  resumeRun: (id: string) => req<Run>('POST', `/api/runs/${id}/resume`),
+  cancelRun: (id: string) => req<Run>('POST', `/api/runs/${id}/cancel`),
+  resolveDecision: (id: string, action: DecisionAction, instructions?: string) =>
+    req<PendingDecision>('POST', `/api/decisions/${id}`, { action, ...(instructions?.trim() ? { instructions } : {}) }),
   recentActivity: () => req<(ActivityEvent & { projectName: string })[]>('GET', '/api/activity/recent'),
 };

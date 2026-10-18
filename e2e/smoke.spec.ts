@@ -24,6 +24,8 @@ test('landing → create → team → command → QA report says PASS', async ({
   await page.getByLabel('Command for your team').fill(DEMO);
   await page.getByRole('button', { name: /Send to team/ }).click();
   await expect(page.getByTestId('planner-note')).toContainText('Documentation Writer');
+  await expect(page.getByTestId('plan-approval')).toContainText('blocked: No Documentation Writer on the team');
+  await page.getByRole('button', { name: 'Approve plan' }).click();
 
   const qaCard = page.locator('[data-task-title="Test edge cases"]');
   await expect(qaCard).toHaveAttribute('data-task-status', 'REVIEW', { timeout: 30_000 });

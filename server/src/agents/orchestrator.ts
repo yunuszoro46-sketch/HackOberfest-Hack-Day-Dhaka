@@ -203,7 +203,7 @@ export class Orchestrator {
       this.repo.setRunStatus(run.id, ['RUNNING'], 'PAUSED', { summary: `Paused: "${task.title}" failed` });
       const d = this.repo.createPending({
         projectId: task.projectId, runId: run.id, taskId: task.id,
-        question: `Task "${task.title}" failed: ${task.lastError ?? 'unknown error'}. Retry or skip?`,
+        question: `Task "${task.title}" failed: ${(task.lastError ?? 'unknown error').replace(/\.+$/, '')}. Retry or skip?`,
         context: `${ROLES[task.role].title}, attempt ${task.attempts}`, proposed: 'retry', alternatives: ['skip'],
         provider: run.provider,
       });

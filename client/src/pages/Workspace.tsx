@@ -1,12 +1,13 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router';
 import {
-  Activity, AlertTriangle, BookOpen, CheckCircle2, FileCode2, FileText, FlaskConical, ListTodo, Loader2, Lock, Play,
+  Activity, AlertTriangle, BookOpen, Eye, Inbox, CheckCircle2, FileCode2, FileText, FlaskConical, ListTodo, Loader2, Lock, Play,
   RotateCcw, Send, Settings2, Sparkles, StickyNote, Terminal, Users,
 } from 'lucide-react';
 import { api } from '../api';
 import { timeAgo, useAsync } from '../hooks';
 import { AsyncState, ErrorNote, ProviderBadge, ROLE_META, RoleChip, StatusBadge } from '../components/ui';
+import { AWAITING, PlanApproval, RunPill, commandLockReason } from '../components/RunPanels';
 import {
   TASK_STATUSES, type ActivityEvent, type AgentRole, type AgentRun, type Artifact, type Command, type ProjectSnapshot, type Task,
 } from '../../../shared/types';
@@ -16,7 +17,7 @@ const ROLE_TITLES: Record<AgentRole, string> = {
   frontend: 'Frontend Engineer', backend: 'Backend Engineer', aiml: 'AI/ML Engineer', qa: 'QA Engineer', researcher: 'Researcher', docs: 'Documentation Writer',
 };
 
-const isActive = (s?: ProjectSnapshot) => !!s && (s.busy || s.tasks.some((t) => t.status === 'QUEUED' || t.status === 'IN_PROGRESS'));
+const isActive = (s?: ProjectSnapshot) => !!s && (s.busy || s.run?.status === 'RUNNING' || s.tasks.some((t) => t.status === 'IN_PROGRESS'));
 
 type Tab = 'board' | 'team' | 'activity' | 'files';
 
@@ -50,12 +51,27 @@ export default function Workspace() {
           <p className="truncate text-sm text-mute">{s.project.goal || 'No goal set'}</p>
         </div>
         <div className="ml-auto flex flex-wrap gap-2">
+          <Link to={`/projects/${id}/supervise`} className="btn-secondary btn-sm"><Eye className="h-3.5 w-3.5" aria-hidden /> Supervise</Link>
           <Link to={`/projects/${id}/context`} className="btn-secondary btn-sm"><BookOpen className="h-3.5 w-3.5" aria-hidden /> Context</Link>
           <Link to={`/projects/${id}/agents`} className="btn-secondary btn-sm"><Settings2 className="h-3.5 w-3.5" aria-hidden /> Edit team</Link>
         </div>
       </div>
 
-      <CommandBar projectId={id} hasAgents={s.agents.length > 0} onSent={snap.reload} latest={s.commands[0]} taskCount={s.commands[0] ? s.tasks.filter((t) => t.commandId === s.commands[0].id).length : 0} commandCount={s.commands.length} />
+      <CommandBar projectId={id} lock={commandLockReason(s.run)} hasAgents={s.agents.length > 0} onSent={snap.reload} latest={s.commands[0]} taskCount={s.commands[0] ? s.tasks.filter((t) => t.commandId === s.commands[0].id).length : 0} commandCount={s.commands.length} />
+
+      {s.run?.status === 'AWAITING_APPROVAL' && <div className="mt-4"><PlanApproval s={s} onChange={snap.reload} /></div>}
+      {s.run && s.run.status !== 'AWAITING_APPROVAL' && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <RunPill status={s.run.status} />
+          <span className="text-mute">{s.tasks.filter((t) => t.runId === s.run!.id && (t.status === 'REVIEW' || t.status === 'COMPLETED')).length}/{s.tasks.filter((t) => t.runId === s.run!.id).length} tasks</span>
+          {s.pendingDecisions.length > 0 && (
+            <Link to={`/projects/${id}/supervise`} className="inline-flex min-h-10 items-center gap-1 text-amber-300 underline sm:min-h-0" data-testid="decision-banner">
+              <Inbox className="h-3.5 w-3.5" aria-hidden /> {s.pendingDecisions.length} decision{s.pendingDecisions.length === 1 ? '' : 's'} waiting
+            </Link>
+          )}
+          <Link to={`/projects/${id}/supervise`} className="inline-flex min-h-10 items-center text-accent-ink hover:underline sm:min-h-0">Supervise run →</Link>
+        </div>
+      )}
 
       <div className="mt-4 flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 lg:hidden" role="tablist" aria-label="Workspace sections">
         {tabs.map((t) => (
@@ -78,8 +94,8 @@ export default function Workspace() {
   );
 }
 
-function CommandBar({ projectId, hasAgents, onSent, latest, taskCount, commandCount }: {
-  projectId: string; hasAgents: boolean; onSent: () => Promise<void>; latest?: Command; taskCount: number; commandCount: number;
+function CommandBar({ projectId, lock, hasAgents, onSent, latest, taskCount, commandCount }: {
+  projectId: string; lock: string | null; hasAgents: boolean; onSent: () => Promise<void>; latest?: Command; taskCount: number; commandCount: number;
 }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -113,14 +129,15 @@ function CommandBar({ projectId, hasAgents, onSent, latest, taskCount, commandCo
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void submit(e); }}
           placeholder={hasAgents ? 'Tell your team what to do… e.g. "' + DEMO + '"' : 'Add teammates first, then give a command.'}
-          disabled={busy}
+          disabled={busy || !!lock}
         />
-        <button type="submit" className="btn-primary sm:w-40" disabled={busy || !text.trim() || !hasAgents}>
+        <button type="submit" className="btn-primary sm:w-40" disabled={busy || !text.trim() || !hasAgents || !!lock}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />} Send to team
         </button>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-mute">
-        {!text && hasAgents && (
+        {lock && <span className="text-amber-300" data-testid="command-lock">{lock}</span>}
+        {!text && hasAgents && !lock && (
           <button type="button" className="btn-ghost btn-sm" onClick={() => setText(DEMO)}><Sparkles className="h-3 w-3" aria-hidden /> Use demo command</button>
         )}
         {!hasAgents && <Link to={`/projects/${projectId}/agents`} className="text-accent-ink underline">Pick your teammates</Link>}
@@ -254,7 +271,8 @@ function Board({ s, onChange }: { s: ProjectSnapshot; onChange: () => Promise<vo
                   {tasks.length === 0 && <p className="px-1.5 py-2 text-xs text-mute">None</p>}
                   {tasks.map((t) => (
                     <TaskCard key={t.id} t={t} artifacts={artifactsByTask.get(t.id) ?? []} act={act} projectId={s.project.id}
-                      run={s.runs.filter((r) => r.taskId === t.id).at(-1)} onTeam={s.agents.some((a) => a.role === t.role)} />
+                      run={s.runs.filter((r) => r.taskId === t.id).at(-1)} onTeam={s.agents.some((a) => a.role === t.role)}
+                      decisionPending={s.pendingDecisions.some((d) => d.taskId === t.id)} />
                   ))}
                 </div>
               </section>
@@ -266,9 +284,10 @@ function Board({ s, onChange }: { s: ProjectSnapshot; onChange: () => Promise<vo
   );
 }
 
-function TaskCard({ t, artifacts, act, run, onTeam, projectId }: {
-  t: Task; artifacts: Artifact[]; act: (fn: () => Promise<unknown>) => Promise<void>; run?: AgentRun; onTeam: boolean; projectId: string;
+function TaskCard({ t, artifacts, act, run, onTeam, projectId, decisionPending }: {
+  t: Task; artifacts: Artifact[]; act: (fn: () => Promise<unknown>) => Promise<void>; run?: AgentRun; onTeam: boolean; projectId: string; decisionPending: boolean;
 }) {
+  const parked = t.blockedReason === AWAITING || t.blockedReason === 'Run cancelled';
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const go = async (fn: () => Promise<unknown>) => {
@@ -298,7 +317,7 @@ function TaskCard({ t, artifacts, act, run, onTeam, projectId }: {
             {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />} Approve
           </button>
         )}
-        {t.status === 'BLOCKED' && onTeam && (
+        {t.status === 'BLOCKED' && onTeam && !parked && (
           <button className="btn-sm btn border border-amber-500/40 text-amber-300 hover:bg-amber-500/10" disabled={pending} onClick={() => go(() => api.patchTask(t.id, { status: 'QUEUED' }))}>
             {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Play className="h-3.5 w-3.5" aria-hidden />} Unblock
           </button>
@@ -308,7 +327,10 @@ function TaskCard({ t, artifacts, act, run, onTeam, projectId }: {
             <Users className="h-3.5 w-3.5" aria-hidden /> Add {ROLE_META[t.role].short} to team
           </Link>
         )}
-        {t.status === 'FAILED' && (
+        {t.status === 'FAILED' && decisionPending && (
+          <Link to={`/projects/${projectId}/supervise`} className="btn-sm btn border border-amber-500/40 text-amber-300 hover:bg-amber-500/10"><Inbox className="h-3.5 w-3.5" aria-hidden /> Decide in Supervise</Link>
+        )}
+        {t.status === 'FAILED' && !decisionPending && (
           <button className="btn-sm btn border border-rose-500/40 text-rose-300 hover:bg-rose-500/10" disabled={pending} onClick={() => go(() => api.retry(t.id))}>
             {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <RotateCcw className="h-3.5 w-3.5" aria-hidden />} Retry
           </button>
