@@ -25,16 +25,17 @@ export default function Supervise() {
             <p className="text-xs text-mute">Supervision · in-app approval inbox (no push notifications) · updates every {s.run?.status === 'RUNNING' ? '2' : '6'}s</p>
           </header>
 
-          <section className="card p-4" aria-label="Run"><RunControls s={s} onChange={snap.reload} /></section>
+          {s.pendingDecisions.length > 0 && <div data-testid="decision-inbox">
+            <section aria-labelledby="inbox-h" className="space-y-3">
+            <h2 id="inbox-h" className="flex items-center gap-2 text-sm font-medium"><Inbox className="h-4 w-4 text-mute" aria-hidden /> Decisions <span className="text-xs font-normal text-mute">{s.pendingDecisions.length} pending</span></h2>
+            {s.pendingDecisions.map((d) => <DecisionCard key={d.id} d={d} title={s.tasks.find((t) => t.id === d.taskId)?.title} onChange={snap.reload} />)}
+          </section>
+          </div>}
+          <section className={`card border-l-4 p-4 ${s.run?.status === 'RUNNING' ? 'border-l-indigo-400' : s.run?.status === 'PAUSED' ? 'border-l-violet-400' : 'border-l-line'}`} aria-label="Run"><RunControls s={s} onChange={snap.reload} /></section>
 
           <PlanApproval s={s} onChange={snap.reload} />
+          {s.pendingDecisions.length === 0 && <p className="card p-4 text-sm text-mute"><Inbox className="mr-1.5 inline h-4 w-4" aria-hidden />Nothing needs your decision.</p>}
 
-          <section aria-labelledby="inbox-h" className="space-y-3">
-            <h2 id="inbox-h" className="flex items-center gap-2 text-sm font-medium"><Inbox className="h-4 w-4 text-mute" aria-hidden /> Decisions <span className="text-xs font-normal text-mute">{s.pendingDecisions.length} pending</span></h2>
-            {s.pendingDecisions.length === 0
-              ? <p className="card p-4 text-sm text-mute">Nothing needs your decision.</p>
-              : s.pendingDecisions.map((d) => <DecisionCard key={d.id} d={d} title={s.tasks.find((t) => t.id === d.taskId)?.title} onChange={snap.reload} />)}
-          </section>
 
           <Agents s={s} />
           <Tasks s={s} />

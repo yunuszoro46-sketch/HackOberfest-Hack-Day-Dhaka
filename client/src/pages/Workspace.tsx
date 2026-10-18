@@ -7,7 +7,7 @@ import {
 import { api } from '../api';
 import { timeAgo, useAsync } from '../hooks';
 import { AsyncState, ErrorNote, ProviderBadge, ROLE_META, RoleChip, StatusBadge } from '../components/ui';
-import { AWAITING, PlanApproval, RunPill, commandLockReason } from '../components/RunPanels';
+import { AWAITING, DecisionCard, PlanApproval, RunControls, commandLockReason } from '../components/RunPanels';
 import {
   TASK_STATUSES, type ActivityEvent, type AgentRole, type AgentRun, type Artifact, type Command, type ProjectSnapshot, type Task,
 } from '../../../shared/types';
@@ -57,20 +57,23 @@ export default function Workspace() {
         </div>
       </div>
 
+      {s.pendingDecisions.length > 0 && (
+        <section className="mb-4 space-y-3" aria-labelledby="ws-inbox-h" data-testid="decision-inbox">
+          <h2 id="ws-inbox-h" className="flex items-center gap-2 text-sm font-medium text-amber-300"><Inbox className="h-4 w-4" aria-hidden /> {s.pendingDecisions.length} decision{s.pendingDecisions.length === 1 ? '' : 's'} need you — the run is paused</h2>
+          {s.pendingDecisions.map((d) => <DecisionCard key={d.id} d={d} title={s.tasks.find((t) => t.id === d.taskId)?.title} onChange={snap.reload} />)}
+        </section>
+      )}
+
       <CommandBar projectId={id} lock={commandLockReason(s.run)} hasAgents={s.agents.length > 0} onSent={snap.reload} latest={s.commands[0]} taskCount={s.commands[0] ? s.tasks.filter((t) => t.commandId === s.commands[0].id).length : 0} commandCount={s.commands.length} />
 
       {s.run?.status === 'AWAITING_APPROVAL' && <div className="mt-4"><PlanApproval s={s} onChange={snap.reload} /></div>}
       {s.run && s.run.status !== 'AWAITING_APPROVAL' && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-          <RunPill status={s.run.status} />
-          <span className="text-mute">{s.tasks.filter((t) => t.runId === s.run!.id && (t.status === 'REVIEW' || t.status === 'COMPLETED')).length}/{s.tasks.filter((t) => t.runId === s.run!.id).length} tasks</span>
-          {s.pendingDecisions.length > 0 && (
-            <Link to={`/projects/${id}/supervise`} className="inline-flex min-h-10 items-center gap-1 text-amber-300 underline sm:min-h-0" data-testid="decision-banner">
-              <Inbox className="h-3.5 w-3.5" aria-hidden /> {s.pendingDecisions.length} decision{s.pendingDecisions.length === 1 ? '' : 's'} waiting
-            </Link>
-          )}
-          <Link to={`/projects/${id}/supervise`} className="inline-flex min-h-10 items-center text-accent-ink hover:underline sm:min-h-0">Supervise run →</Link>
-        </div>
+        <section className={`card mt-4 border-l-4 p-4 ${s.run.status === 'RUNNING' ? 'border-l-indigo-400' : s.run.status === 'PAUSED' ? 'border-l-violet-400' : 'border-l-line'}`} aria-label="Current run" data-testid="run-panel">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
+            <div className="min-w-0 flex-1"><RunControls s={s} onChange={snap.reload} /></div>
+            <Link to={`/projects/${id}/supervise`} className="inline-flex min-h-10 items-center text-xs text-accent-ink hover:underline sm:min-h-0">Open supervise view →</Link>
+          </div>
+        </section>
       )}
 
       <div className="mt-4 flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 lg:hidden" role="tablist" aria-label="Workspace sections">
@@ -118,12 +121,12 @@ function CommandBar({ projectId, lock, hasAgents, onSent, latest, taskCount, com
   }
 
   return (
-    <form onSubmit={submit} className="card p-3" aria-label="Command the team">
-      <label htmlFor="command" className="sr-only">Command for your team</label>
+    <form onSubmit={submit} className="card border-accent/40 p-4 shadow-lg shadow-accent/5" aria-label="Command the team">
+      <label htmlFor="command" className="mb-2 block text-sm font-medium">Command for your team</label>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <textarea
           id="command"
-          className="input min-h-[52px] flex-1 resize-y"
+          className="input min-h-[72px] flex-1 resize-y"
           rows={2}
           value={text}
           onChange={(e) => setText(e.target.value)}
