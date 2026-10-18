@@ -7,6 +7,7 @@ const STATUS: Record<ApiErrorCode, number> = {
   NO_AGENTS: 409,
   STALE: 409,
   EMPTY_PLAN: 422,
+  RUN_ACTIVE: 409,
   INTERNAL: 500,
 };
 

@@ -9,6 +9,7 @@ describe('orchestrator', () => {
     expect(res.status).toBe(202);
     expect(res.body.tasks).toHaveLength(4);
     expect(res.body.plannerProvider).toBe('rules');
+    expect((await http.post(`/api/runs/${res.body.run.id}/approve`)).status).toBe(200);
 
     // Concurrent kicks must not double-run anything.
     const p1 = orch.kick(pid);

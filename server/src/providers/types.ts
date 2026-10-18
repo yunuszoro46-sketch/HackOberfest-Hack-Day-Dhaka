@@ -27,6 +27,8 @@ export interface RunContext {
   role: RoleDefinition;
   attempt: number;
   priorResults: PriorResult[];
+  /** Notes the leader attached to this task (e.g. decision instructions). */
+  leaderNotes: string[];
   signal: AbortSignal;
 }
 

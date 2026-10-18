@@ -97,4 +97,48 @@ CREATE TABLE activity_events (
 CREATE INDEX idx_activity_project ON activity_events(project_id, id);
 `,
   },
+  {
+    // Supervised autonomy: runs with approval + limits, failure decisions, handoff messages. Additive only.
+    name: '002_runs_decisions_handoff',
+    sql: `
+CREATE TABLE runs (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  command_id TEXT,
+  status TEXT NOT NULL,
+  max_tasks INTEGER NOT NULL,
+  max_runtime_ms INTEGER NOT NULL,
+  planner_provider TEXT NOT NULL DEFAULT '',
+  provider TEXT NOT NULL DEFAULT '',
+  started_at TEXT,
+  last_progress_at TEXT,
+  finished_at TEXT,
+  summary TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX idx_runs_project ON runs(project_id, created_at);
+ALTER TABLE tasks ADD COLUMN run_id TEXT;
+CREATE TABLE decisions_pending (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  run_id TEXT NOT NULL,
+  task_id TEXT NOT NULL,
+  question TEXT NOT NULL,
+  context TEXT NOT NULL DEFAULT '',
+  proposed TEXT NOT NULL,
+  alternatives TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL,
+  provider TEXT NOT NULL DEFAULT '',
+  resolved_by TEXT,
+  resolution TEXT,
+  instructions TEXT,
+  created_at TEXT NOT NULL,
+  resolved_at TEXT
+);
+CREATE INDEX idx_decisions_pending_project ON decisions_pending(project_id, status);
+ALTER TABLE messages ADD COLUMN kind TEXT NOT NULL DEFAULT 'note';
+ALTER TABLE messages ADD COLUMN to_role TEXT;
+ALTER TABLE messages ADD COLUMN provider TEXT;
+`,
+  },
 ];

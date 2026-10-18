@@ -34,7 +34,12 @@ const DecisionBody = z.object({
   rationale: z.string().trim().max(2000).default(''),
   madeBy: z.string().trim().min(1).max(60).default('leader'),
 });
-const CommandBody = z.object({ text: z.string().trim().min(1, 'Command text is required').max(2000) });
+const CommandBody = z.object({
+  text: z.string().trim().min(1, 'Command text is required').max(2000),
+  maxTasks: z.number().int().min(1).max(100).optional(),
+  maxRuntimeMs: z.number().int().min(1000).max(24 * 60 * 60 * 1000).optional(),
+});
+const DecisionResolve = z.object({ action: z.enum(['approve', 'reject']), instructions: z.string().trim().max(2000).optional() });
 const TaskPatch = z
   .object({
     status: z.enum(TASK_STATUSES).optional(),
@@ -92,6 +97,8 @@ export function createApp(opts: AppOptions = {}) {
       decisions: repo.listDecisions(p.id),
       commands: repo.listCommands(p.id),
       busy: orch.isBusy(p.id),
+      run: repo.latestSupRun(p.id),
+      pendingDecisions: repo.listPending(p.id),
     };
     res.json(snap);
   });
@@ -111,8 +118,22 @@ export function createApp(opts: AppOptions = {}) {
   app.post('/api/projects/:id/commands', async (req, res) => {
     const p = project(req.params.id);
     const body = parse(CommandBody, req.body);
-    res.status(202).json(await orch.submitCommand(p.id, body.text));
+    res.status(202).json(await orch.submitCommand(p.id, body.text, { maxTasks: body.maxTasks, maxRuntimeMs: body.maxRuntimeMs }));
   });
+
+  app.get('/api/runs/:id', (req, res) => {
+    const r = repo.getSupRun(req.params.id);
+    if (!r) throw notFound('Run');
+    res.json(r);
+  });
+  app.post('/api/runs/:id/approve', (req, res) => { res.json(orch.approveRun(req.params.id)); });
+  app.post('/api/runs/:id/pause', (req, res) => { res.json(orch.pauseRun(req.params.id)); });
+  app.post('/api/runs/:id/resume', (req, res) => { res.json(orch.resumeRun(req.params.id)); });
+  app.post('/api/decisions/:id', (req, res) => {
+    const body = parse(DecisionResolve, req.body);
+    res.json(orch.resolveDecision(req.params.id, body.action, body.instructions));
+  });
+  app.post('/api/runs/:id/cancel', (req, res) => { res.json(orch.cancelRun(req.params.id)); });
 
   app.get('/api/projects/:id/tasks', (req, res) => { res.json(repo.listTasks(project(req.params.id).id)); });
 

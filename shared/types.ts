@@ -79,9 +79,63 @@ export interface Task {
   summary: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Supervised run this task belongs to (null for tasks created before runs existed). */
+  runId: string | null;
 }
 
-export type RunStatus = 'running' | 'succeeded' | 'failed';
+export const RUN_STATUSES = ['AWAITING_APPROVAL', 'RUNNING', 'PAUSED', 'COMPLETED', 'CANCELLED', 'FAILED'] as const;
+export type RunStatus = (typeof RUN_STATUSES)[number];
+
+/** Leader-driven run transitions. COMPLETED/FAILED are set by the orchestrator. */
+export const RUN_TRANSITIONS: Record<RunStatus, readonly RunStatus[]> = {
+  AWAITING_APPROVAL: ['RUNNING', 'CANCELLED'],
+  RUNNING: ['PAUSED', 'CANCELLED', 'COMPLETED', 'FAILED'],
+  PAUSED: ['RUNNING', 'CANCELLED'],
+  // A leader retry/unblock on a task of a finished run reopens it.
+  COMPLETED: ['RUNNING'],
+  FAILED: ['RUNNING'],
+  CANCELLED: [],
+};
+
+export interface Run {
+  id: string;
+  projectId: string;
+  commandId: string | null;
+  status: RunStatus;
+  maxTasks: number;
+  maxRuntimeMs: number;
+  plannerProvider: string;
+  provider: string;
+  startedAt: string | null;
+  lastProgressAt: string | null;
+  finishedAt: string | null;
+  summary: string | null;
+  createdAt: string;
+  /** Task executions (agent runs) counted against maxTasks. */
+  executed?: number;
+}
+
+export type DecisionAction = 'approve' | 'reject';
+
+export interface PendingDecision {
+  id: string;
+  projectId: string;
+  runId: string;
+  taskId: string;
+  question: string;
+  context: string;
+  proposed: string;
+  alternatives: string[];
+  status: 'PENDING' | 'RESOLVED';
+  provider: string;
+  resolvedBy: string | null;
+  resolution: DecisionAction | null;
+  instructions: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+export type AgentRunStatus = 'running' | 'succeeded' | 'failed';
 
 export interface AgentRun {
   id: string;
@@ -90,7 +144,7 @@ export interface AgentRun {
   role: AgentRole;
   provider: string;
   attempt: number;
-  status: RunStatus;
+  status: AgentRunStatus;
   summary: string | null;
   error: string | null;
   startedAt: string;
@@ -104,6 +158,9 @@ export interface Message {
   author: string;
   body: string;
   createdAt: string;
+  kind: 'note' | 'handoff';
+  toRole: AgentRole | null;
+  provider: string | null;
 }
 
 export interface Decision {
@@ -142,6 +199,10 @@ export type ActivityType =
   | 'artifact_created'
   | 'decision_added'
   | 'leader_action'
+  | 'run.status'
+  | 'decision.requested'
+  | 'decision.resolved'
+  | 'agent.handoff'
   | 'system';
 
 export interface ActivityEvent {
@@ -177,6 +238,9 @@ export interface ProjectSnapshot {
   decisions: Decision[];
   commands: Command[];
   busy: boolean;
+  /** Latest supervised run of the project, if any. */
+  run: Run | null;
+  pendingDecisions: PendingDecision[];
 }
 
 export interface CommandResponse {
@@ -185,6 +249,9 @@ export interface CommandResponse {
   tasks: Task[];
   plannerProvider: string;
   plannerNote: string;
+  run: Run;
+  /** Tasks in execution (dependency) order with their assigned role. */
+  plan: { taskId: string; position: number; role: AgentRole; title: string; blockedReason: string | null }[];
 }
 
 export type ApiErrorCode =
@@ -194,6 +261,7 @@ export type ApiErrorCode =
   | 'NO_AGENTS'
   | 'STALE'
   | 'EMPTY_PLAN'
+  | 'RUN_ACTIVE'
   | 'INTERNAL';
 
 export interface ApiError {

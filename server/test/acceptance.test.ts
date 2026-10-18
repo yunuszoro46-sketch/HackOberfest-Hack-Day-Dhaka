@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { createDemoProject, DEMO_COMMAND, makeApp } from './helpers';
+import { commandAndRun, createDemoProject, DEMO_COMMAND, makeApp } from './helpers';
 
 describe('acceptance: demo scenario via API', () => {
   it('runs steps 1–10 and survives a restart', async () => {
@@ -14,10 +14,15 @@ describe('acceptance: demo scenario via API', () => {
     const cmd = await a.http.post(`/api/projects/${pid}/commands`).send({ text: DEMO_COMMAND });
     expect(cmd.status).toBe(202);
     expect(cmd.body.plannerNote).toMatch(/Documentation Writer/);
-    expect(cmd.body.tasks.map((t: any) => [t.role, t.status])).toEqual([
-      ['frontend', 'QUEUED'], ['frontend', 'QUEUED'], ['qa', 'QUEUED'], ['docs', 'BLOCKED'],
+    // Supervised run: everything waits for plan approval; docs is blocked for a missing teammate.
+    expect(cmd.body.tasks.map((t: any) => [t.role, t.status, t.blockedReason])).toEqual([
+      ['frontend', 'BLOCKED', 'Awaiting plan approval'], ['frontend', 'BLOCKED', 'Awaiting plan approval'],
+      ['qa', 'BLOCKED', 'Awaiting plan approval'], ['docs', 'BLOCKED', 'No Documentation Writer on the team'],
     ]);
+    expect(cmd.body.run.status).toBe('AWAITING_APPROVAL');
+    expect((await a.http.post(`/api/runs/${cmd.body.run.id}/approve`)).status).toBe(200);
     await a.orch.idle(pid);
+    expect((await a.http.get(`/api/runs/${cmd.body.run.id}`)).body.status).toBe('COMPLETED');
 
     // 6: real files + QA report that really ran the tests
     let snap = (await a.http.get(`/api/projects/${pid}/snapshot`)).body;
@@ -45,15 +50,17 @@ describe('acceptance: demo scenario via API', () => {
     expect(snap.tasks.map((t: any) => [t.id, t.status])).toEqual(before.map(([id, s]: any) => [id, id === frontendTask.id ? 'COMPLETED' : s]));
     expect((await b.http.get(`/api/artifacts/${qaArt.id}`)).body.content).toContain('PASS');
 
-    // 9: simulated failure → FAILED → retry → REVIEW, two runs kept
-    const fail = await b.http.post(`/api/projects/${pid}/commands`).send({ text: 'simulate a failure' });
+    // 9: simulated failure → FAILED → decision → approve (retry) → REVIEW, two runs kept
+    const fail = await commandAndRun(b, pid, 'simulate a failure');
     const failId = fail.body.taskIds[0];
-    await b.orch.idle(pid);
     let ft = (await b.http.get(`/api/tasks/${failId}`)).body;
     expect(ft.status).toBe('FAILED');
     expect(ft.lastError).toMatch(/Simulated failure/);
-    const retry = await b.http.post(`/api/tasks/${failId}/retry`);
-    expect(retry.status).toBe(202);
+    const pending = (await b.http.get(`/api/projects/${pid}/snapshot`)).body.pendingDecisions;
+    expect(pending).toHaveLength(1);
+    expect((await b.http.post(`/api/tasks/${failId}/retry`)).status).toBe(409); // must go through the decision
+    const retry = await b.http.post(`/api/decisions/${pending[0].id}`).send({ action: 'approve' });
+    expect(retry.status).toBe(200);
     await b.orch.idle(pid);
     ft = (await b.http.get(`/api/tasks/${failId}`)).body;
     expect(ft.status).toBe('REVIEW');
@@ -92,11 +99,9 @@ describe('acceptance: demo scenario via API', () => {
   it('QA fails honestly when a file is broken', async () => {
     const a = makeApp();
     const pid = await createDemoProject(a.http, ['frontend', 'qa']);
-    await a.http.post(`/api/projects/${pid}/commands`).send({ text: 'implement booking validation' });
-    await a.orch.idle(pid);
+    await commandAndRun(a, pid, 'implement booking validation');
     fs.writeFileSync(path.join(a.orch.workspaceFor(pid), 'src/booking.ts'), 'export function broken( {\n');
-    const r = await a.http.post(`/api/projects/${pid}/commands`).send({ text: 'test edge cases' });
-    await a.orch.idle(pid);
+    const r = await commandAndRun(a, pid, 'test edge cases');
     const qa = (await a.http.get(`/api/tasks/${r.body.taskIds[0]}`)).body;
     expect(qa.status).toBe('FAILED');
     expect(qa.lastError).toMatch(/syntax-check src\/booking.ts/);
