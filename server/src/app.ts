@@ -63,6 +63,14 @@ export function createApp(opts: AppOptions = {}) {
   const recovered = orch.boot();
 
   const app = express();
+  app.disable('x-powered-by');
+  // Artifacts are agent-written text: never let a browser sniff them into something executable.
+  app.use((_req, res, next) => {
+    res.set('X-Content-Type-Options', 'nosniff');
+    res.set('Referrer-Policy', 'no-referrer');
+    res.set('X-Frame-Options', 'DENY');
+    next();
+  });
   app.use(express.json({ limit: '256kb' }));
 
   const project = (id: string) => repo.getProject(id) ?? (() => { throw notFound('Project'); })();

@@ -4,7 +4,10 @@ import { makeApp } from './helpers';
 describe('api', () => {
   it('validates, 404s and enforces transitions', async () => {
     const { http, repo } = makeApp();
-    expect((await http.get('/api/health')).body.ok).toBe(true);
+    const health = await http.get('/api/health');
+    expect(health.body.ok).toBe(true);
+    expect(health.headers['x-powered-by']).toBeUndefined();
+    expect(health.headers['x-content-type-options']).toBe('nosniff');
     expect((await http.get('/api/roles')).body).toHaveLength(6);
 
     const bad = await http.post('/api/projects').send({ name: '  ' });
