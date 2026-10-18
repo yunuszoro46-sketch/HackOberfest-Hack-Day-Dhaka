@@ -8,7 +8,7 @@ import { api } from '../api';
 import { timeAgo, useAsync } from '../hooks';
 import { AsyncState, ErrorNote, ProviderBadge, ROLE_META, RoleChip, StatusBadge } from '../components/ui';
 import {
-  TASK_STATUSES, type ActivityEvent, type AgentRole, type Artifact, type CommandResponse, type ProjectSnapshot, type Task,
+  TASK_STATUSES, type ActivityEvent, type AgentRole, type Artifact, type Command, type ProjectSnapshot, type Task,
 } from '../../../shared/types';
 
 const DEMO = 'Build a room availability interface, implement booking validation, test edge cases, and document the result.';
@@ -55,7 +55,7 @@ export default function Workspace() {
         </div>
       </div>
 
-      <CommandBar projectId={id} hasAgents={s.agents.length > 0} onSent={snap.reload} />
+      <CommandBar projectId={id} hasAgents={s.agents.length > 0} onSent={snap.reload} latest={s.commands[0]} taskCount={s.commands[0] ? s.tasks.filter((t) => t.commandId === s.commands[0].id).length : 0} commandCount={s.commands.length} />
 
       <div className="mt-4 flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 lg:hidden" role="tablist" aria-label="Workspace sections">
         {tabs.map((t) => (
@@ -69,18 +69,21 @@ export default function Workspace() {
       <div className="mt-4 grid gap-4 lg:grid-cols-[230px_minmax(0,1fr)_320px]">
         <aside className={show('team')}><Roster s={s} /></aside>
         <section className={`min-w-0 ${show('board')}`}><Board s={s} onChange={snap.reload} /></section>
-        <aside className={`min-w-0 ${show('activity')}`}><Feed events={s.activity} /></aside>
+        <aside className="min-w-0 space-y-4">
+          <div className={show('files')}><Deliverables s={s} /></div>
+          <div className={show('activity')}><Feed events={s.activity} /></div>
+        </aside>
       </div>
-      <div className={`mt-4 ${show('files')}`}><Deliverables s={s} /></div>
     </div>
   );
 }
 
-function CommandBar({ projectId, hasAgents, onSent }: { projectId: string; hasAgents: boolean; onSent: () => void }) {
+function CommandBar({ projectId, hasAgents, onSent, latest, taskCount, commandCount }: {
+  projectId: string; hasAgents: boolean; onSent: () => Promise<void>; latest?: Command; taskCount: number; commandCount: number;
+}) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [last, setLast] = useState<CommandResponse | null>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -88,10 +91,9 @@ function CommandBar({ projectId, hasAgents, onSent }: { projectId: string; hasAg
     setBusy(true);
     setError(null);
     try {
-      const r = await api.command(projectId, text);
-      setLast(r);
+      await api.command(projectId, text);
       setText('');
-      onSent();
+      await onSent();
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -125,14 +127,20 @@ function CommandBar({ projectId, hasAgents, onSent }: { projectId: string; hasAg
         <span className="hidden sm:inline">Ctrl/⌘ + Enter to send</span>
       </div>
       <ErrorNote error={error} />
-      {last && (
-        <div className="mt-2 rounded-lg border border-line bg-bg p-3 text-sm" role="status" data-testid="planner-note">
-          <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-mute">
-            <Sparkles className="h-3.5 w-3.5 text-violet" aria-hidden /> Planner
-            <ProviderBadge provider={last.plannerProvider} />
-            <span>· {last.tasks.length} task{last.tasks.length === 1 ? '' : 's'}</span>
+      {latest && (
+        <div className="mt-3 rounded-lg border border-line bg-bg p-3" role="status" data-testid="planner-note">
+          <div className="flex flex-wrap items-center gap-2 text-2xs text-mute">
+            <span className="font-medium uppercase tracking-wide">Leader's last command</span>
+            <span>· {timeAgo(latest.createdAt)}</span>
+            {commandCount > 1 && <Link to={`/projects/${projectId}/context`} className="text-accent-ink hover:underline">all {commandCount} commands</Link>}
           </div>
-          <p>{last.plannerNote}</p>
+          <p className="mt-1 text-sm text-ink">“{latest.text}”</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-mute">
+            <Sparkles className="h-3.5 w-3.5 text-accent-ink" aria-hidden /> Planned by
+            <ProviderBadge provider={latest.plannerProvider} />
+            <span>into {taskCount} task{taskCount === 1 ? '' : 's'}</span>
+          </div>
+          {latest.plannerNote && <p className="mt-1 text-xs text-mute">{latest.plannerNote}</p>}
         </div>
       )}
     </form>
@@ -291,7 +299,7 @@ function TaskCard({ t, artifacts, act }: { t: Task; artifacts: Artifact[]; act: 
 
 function Feed({ events }: { events: ActivityEvent[] }) {
   return (
-    <div className="card flex max-h-[70vh] flex-col lg:sticky lg:top-20">
+    <div className="card flex max-h-[60vh] flex-col">
       <h2 className="flex items-center gap-2 border-b border-line px-4 py-3 text-sm font-medium"><Activity className="h-4 w-4 text-mute" aria-hidden /> Activity</h2>
       {events.length === 0 ? (
         <p className="p-6 text-center text-sm text-mute">Nothing has happened yet.</p>
@@ -325,23 +333,28 @@ function Deliverables({ s }: { s: ProjectSnapshot }) {
   const runs = new Map(s.runs.map((r) => [r.id, r]));
   const latest = [...new Map(s.artifacts.map((a) => [a.path, a])).values()].reverse();
   return (
-    <section aria-labelledby="deliverables-h">
-      <h2 id="deliverables-h" className="mb-2 flex items-center gap-2 text-sm font-medium"><FileCode2 className="h-4 w-4 text-mute" aria-hidden /> Deliverables <span className="text-xs font-normal text-mute">{latest.length} file{latest.length === 1 ? '' : 's'}</span></h2>
+    <section className="card" aria-labelledby="deliverables-h">
+      <h2 id="deliverables-h" className="flex items-center gap-2 border-b border-line px-4 py-3 text-sm font-medium">
+        <FileCode2 className="h-4 w-4 text-mute" aria-hidden /> Deliverables
+        <span className="ml-auto text-xs font-normal text-mute">{latest.length} file{latest.length === 1 ? '' : 's'}</span>
+      </h2>
       {latest.length === 0 ? (
-        <div className="card p-6 text-center text-sm text-mute">Files your teammates write will appear here.</div>
+        <p className="p-6 text-center text-sm text-mute">Files your teammates write will appear here.</p>
       ) : (
-        <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="divide-y divide-line">
           {latest.map((a) => {
             const run = runs.get(a.runId);
             const Icon = KIND_ICON[a.kind];
             return (
               <li key={a.id}>
-                <Link to={`/artifacts/${a.id}`} className="card flex items-start gap-3 p-3 transition hover:border-accent/50" data-artifact={a.path}>
+                <Link to={`/artifacts/${a.id}`} className="flex items-start gap-3 px-4 py-2.5 transition hover:bg-surface-2" data-artifact={a.path}>
                   <Icon className="mt-0.5 h-4 w-4 shrink-0 text-accent-ink" aria-hidden />
-                  <div className="min-w-0">
-                    <p className="truncate font-mono text-xs">{a.path}</p>
-                    <p className="mt-0.5 text-2xs text-mute">
-                      {a.kind} · {(a.size / 1024).toFixed(1)} KB{run ? ` · ${ROLE_META[run.role].short} run ${run.status}` : ''}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-mono text-xs text-ink">{a.path}</p>
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-2xs text-mute">
+                      <span>{a.kind} · {(a.size / 1024).toFixed(1)} KB</span>
+                      {run && <span>· {ROLE_META[run.role].short} #{run.attempt} {run.status}</span>}
+                      {run && <ProviderBadge provider={run.provider} />}
                     </p>
                   </div>
                 </Link>
