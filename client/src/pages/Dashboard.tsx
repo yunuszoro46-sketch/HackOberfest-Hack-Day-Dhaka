@@ -8,6 +8,8 @@ import { TASK_STATUSES } from '../../../shared/types';
 export default function Dashboard() {
   const projects = useAsync(() => api.projects(), [], 6000);
   const activity = useAsync(() => api.recentActivity(), [], 6000);
+  // Tool calls are visible per project in the workspace stream; here only the meaningful events.
+  const recent = (activity.data ?? []).filter((e) => e.type !== 'tool_call').slice(0, 12);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -44,11 +46,11 @@ export default function Dashboard() {
           </AsyncState>
         </section>
         <section aria-labelledby="recent-h">
-          <h2 id="recent-h" className="mb-3 flex items-center gap-2 text-sm font-medium text-mute"><Activity className="h-4 w-4" aria-hidden /> Recent activity</h2>
+          <h2 id="recent-h" className="mb-3 flex items-center gap-2 text-sm font-medium text-mute"><Activity className="h-4 w-4" aria-hidden /> Recent activity <span className="ml-auto font-mono text-2xs font-normal">up to 12 · tool calls hidden</span></h2>
           <div className="card">
-            <AsyncState loading={activity.loading} error={activity.error} onRetry={activity.reload} empty={activity.data?.length === 0} emptyText="No activity yet.">
+            <AsyncState loading={activity.loading} error={activity.error} onRetry={activity.reload} empty={recent.length === 0} emptyText="No activity yet. Create a project and send a command.">
               <ul className="divide-y divide-line">
-                {activity.data?.map((e) => (
+                {recent.map((e) => (
                   <li key={e.id} className="px-4 py-2.5 text-sm">
                     <div className="flex justify-between gap-2 text-xs text-mute"><span className="truncate">{e.projectName} · {e.actor}</span><span className="shrink-0">{timeAgo(e.createdAt)}</span></div>
                     <p className="mt-0.5 break-words">{e.message}</p>
