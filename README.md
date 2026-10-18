@@ -6,7 +6,7 @@ A hackathon team leader creates a project, picks specialised AI teammates, types
 
 ## Quick start
 
-Requires Node 22+.
+Requires **Node 22.18+** (check with `node -v`). QA runs the generated tests with Node's built-in TypeScript support, which older 22.x releases don't enable by default — on older versions QA will correctly report FAIL.
 
 ```bash
 npm install
