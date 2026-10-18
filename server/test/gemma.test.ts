@@ -41,6 +41,15 @@ describe('GemmaProvider (native Gemini API, stubbed fetch)', () => {
     expect(parseLooseJson('x {"a":"}"} y {"b":2}')).toEqual({ a: '}' });
   });
 
+  it('ignores Gemma 4 thought parts and asks for minimal thinking', async () => {
+    const thought = { text: 'Let me think. Maybe {"tasks": "draft"} ... done.', thought: true };
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [thought, { text: PLAN }] } }] }), { status: 200 }));
+    const plan = await new GemmaProvider({ apiKey: 'k', model: 'gemma-4-26b-a4b-it', fetchImpl: fetchImpl as unknown as typeof fetch }).plan(ctx);
+    expect(plan.tasks).toHaveLength(3);
+    const init = (fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect(JSON.parse(String(init.body)).generationConfig).toEqual({ temperature: 0.2, thinkingConfig: { thinkingLevel: 'minimal' } });
+  });
+
   it('maps HTTP and parse failures to short reasons', async () => {
     await failsWith(gemma(async () => reply('', 401)).plan(ctx), 'AUTH');
     await failsWith(gemma(async () => reply('', 403)).plan(ctx), 'AUTH');

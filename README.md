@@ -42,6 +42,8 @@ We wanted to try the other shape: AI teammates that receive assigned tasks, writ
 
 ## How much of this is AI?
 
+**Planning: Gemma via Google AI Studio (model `gemma-4-26b-a4b-it`); agents run on a labelled mock provider; rule-based fallback on provider error.** The UI says which one planned each command: "Planned by Gemma (<model>)", "Rule-based plan — Gemma unavailable: <REASON>" (AUTH, RATE_LIMIT, TIMEOUT, BAD_JSON, SCHEMA, MODEL_NOT_FOUND, NETWORK, UPSTREAM), or "Rule-based plan (provider: mock)".
+
 Being upfront about this, because it matters for judging:
 
 | Part | Default (`AGENT_PROVIDER=mock`) | With `AGENT_PROVIDER=gemma` |
@@ -107,12 +109,12 @@ Everything is optional. Copy `.env.example` to `.env` in the project root only i
 |---|---|---|
 | `AGENT_PROVIDER` | `mock` | `mock`: rule planner + templates, no network. `gemma`: Gemma plans, templates still execute. |
 | `GEMMA_API_KEY` | — | Google AI Studio key, only for `gemma`. Sent only in the `x-goog-api-key` header. |
-| `GEMMA_MODEL` | `gemma-3-27b-it` | A Gemma model id your key can access. |
+| `GEMMA_MODEL` | `gemma-4-26b-a4b-it` | A Gemma model id your key can access. Verified live on 2026-10-18: `gemma-4-26b-a4b-it` (~4–5s per plan) and `gemma-4-31b-it`. Gemma 4 is asked for minimal thinking; with default thinking it took 22–78s and exceeded the 12s limit. |
 | `PORT` | `3001` | API port. |
 | `TEAMMATE_DB` | `server/data/teammate.db` | SQLite file location. |
 | `TEAMMATE_WORKSPACE` | `server/workspace/` | Where agents write files. |
 
-If the Gemma call fails or takes longer than 12 seconds, the rule planner takes over and the plan is labelled `rules (fallback: gemma — <reason>)`.
+If the Gemma call fails or takes longer than 12 seconds, the rule planner takes over, the plan is labelled `rules (fallback: gemma <REASON>)`, and a `planner.fallback` event appears in the activity stream. A Gemma plan still waits for your approval like any other plan.
 
 ## Tests
 

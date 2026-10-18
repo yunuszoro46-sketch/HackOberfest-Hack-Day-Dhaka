@@ -43,7 +43,7 @@ export interface RunResult {
 
 export interface AgentProvider {
   readonly name: string;
-  /** What to record as plannerProvider when this provider's plan is used (defaults to name), e.g. "gemma:gemma-3-27b-it". */
+  /** What to record as plannerProvider when this provider's plan is used (defaults to name), e.g. "gemma:gemma-4-26b-a4b-it". */
   readonly label?: string;
   plan(ctx: PlanContext): Promise<Plan>;
   run(ctx: RunContext, tools: ToolBox): Promise<RunResult>;

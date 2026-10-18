@@ -13,7 +13,15 @@ import type { AgentProvider, PlanContext, RunContext, RunResult } from './types'
 import type { ToolBox } from '../tools/toolbox';
 
 export const GEMMA_TIMEOUT_MS = 12_000;
-export const DEFAULT_GEMMA_MODEL = 'gemma-3-27b-it';
+// Verified against the live models list for this project's key (2026-10-18): gemma-4-26b-a4b-it, gemma-4-31b-it.
+export const DEFAULT_GEMMA_MODEL = 'gemma-4-26b-a4b-it';
+
+/**
+ * Gemma 4 thinks before answering by default (3.5k thought tokens, 22–78s measured), which blows the 12s budget.
+ * thinkingLevel "minimal" was measured at ~4s with 0 thought tokens; thinkingBudget is rejected (400) for Gemma 4.
+ */
+const generationConfigFor = (model: string) =>
+  model.startsWith('gemma-4') ? { temperature: 0.2, thinkingConfig: { thinkingLevel: 'minimal' } } : { temperature: 0.2 };
 
 /** Short, safe reasons stored on the command. Never contains the key or a raw response body. */
 export type GemmaFailure = 'AUTH' | 'RATE_LIMIT' | 'TIMEOUT' | 'BAD_JSON' | 'SCHEMA' | 'MODEL_NOT_FOUND' | 'NETWORK' | 'UPSTREAM';
@@ -42,7 +50,8 @@ const PlanSchema = z
   .superRefine((plan, ctx) => {
     plan.tasks.forEach((t, i) => {
       for (const d of t.dependsOn ?? []) {
-        if (d >= plan.tasks.length || d === i) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `task ${i} depends on ${d}, which is not another task in this plan` });
+        // Reject ids outside the plan. (A self-reference is meaningless but harmless: execution is sequential.)
+        if (d >= plan.tasks.length) ctx.addIssue({ code: z.ZodIssueCode.custom, message: `task ${i} depends on ${d}, which is not a task in this plan` });
       }
     });
   });
@@ -109,7 +118,7 @@ export class GemmaProvider implements AgentProvider {
     this.timeoutMs = opts.timeoutMs ?? GEMMA_TIMEOUT_MS;
   }
 
-  /** Recorded as plannerProvider on success, e.g. "gemma:gemma-3-27b-it". */
+  /** Recorded as plannerProvider on success, e.g. "gemma:gemma-4-26b-a4b-it". */
   get label(): string {
     return `gemma:${this.model}`;
   }
@@ -127,7 +136,7 @@ export class GemmaProvider implements AgentProvider {
           method: 'POST',
           signal: ac.signal,
           headers: { 'content-type': 'application/json', 'x-goog-api-key': this.apiKey },
-          body: JSON.stringify({ contents: [{ parts: [{ text: buildPlanPrompt(ctx) }] }], generationConfig: { temperature: 0.2 } }),
+          body: JSON.stringify({ contents: [{ parts: [{ text: buildPlanPrompt(ctx) }] }], generationConfig: generationConfigFor(this.model) }),
         },
       );
     } catch (err) {
@@ -144,8 +153,9 @@ export class GemmaProvider implements AgentProvider {
 
     let text: string;
     try {
-      const body = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-      text = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+      const body = (await res.json()) as { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[] };
+      // Gemma 4 returns its reasoning as separate `thought` parts; only the answer parts hold the plan.
+      text = body.candidates?.[0]?.content?.parts?.filter((p) => !p.thought).map((p) => p.text ?? '').join('') ?? '';
     } catch {
       throw new GemmaError('BAD_JSON', 'response body was not JSON');
     }
