@@ -6,6 +6,7 @@ import { clock, useAsync, useNow } from '../hooks';
 import { AsyncState, ErrorNote, ProviderBadge, RoleChip, StatusBadge } from '../components/ui';
 import { RunControls, RunPill, commandLockReason } from '../components/RunPanels';
 import { NeedsYou } from '../components/workspace/NeedsYou';
+import { Announcer } from '../components/Announcer';
 import { TASK_STATUSES, type ProjectSnapshot } from '../../../shared/types';
 
 /** Mobile-first supervision view: run, decisions, agents, tasks, recent activity, deliverables, command. */
@@ -24,6 +25,7 @@ export default function Supervise() {
 
   return (
     <div className="mx-auto max-w-xl px-4 pb-8">
+      <Announcer s={s} />
       {s && (
         <div className="sticky top-14 z-10 -mx-4 border-b border-line-soft bg-bg/90 px-4 py-2 backdrop-blur" data-testid="supervise-status">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -32,7 +34,7 @@ export default function Supervise() {
             {(s.pendingDecisions.length > 0 || r?.status === 'AWAITING_APPROVAL') && (
               <a href="#needs-h" className="inline-flex min-h-10 items-center gap-1 text-xs font-medium text-amber-300 underline"><Inbox className="h-3.5 w-3.5" aria-hidden />{s.pendingDecisions.length + (r?.status === 'AWAITING_APPROVAL' ? 1 : 0)} waiting</a>
             )}
-            <span className={`ml-auto flex items-center gap-1.5 font-mono text-2xs ${stale ? 'text-amber-300' : 'text-mute'}`} role="status">
+            <span className={`ml-auto flex items-center gap-1.5 font-mono text-2xs ${stale ? 'text-amber-300' : 'text-mute'}`}>
               <span className={`h-1.5 w-1.5 rounded-full ${stale ? 'bg-amber-400' : 'bg-live'}`} aria-hidden />{stale ? `stale ${age ?? '?'}s` : `live · ${age ?? 0}s`}
             </span>
           </div>

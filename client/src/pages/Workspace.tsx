@@ -13,6 +13,7 @@ import { TeamRoster } from '../components/workspace/TeamRoster';
 import { TaskBoard } from '../components/workspace/TaskBoard';
 import { ActivityStream } from '../components/workspace/ActivityStream';
 import { Deliverables } from '../components/workspace/Deliverables';
+import { Announcer } from '../components/Announcer';
 import type { ProjectSnapshot } from '../../../shared/types';
 
 const isActive = (s?: ProjectSnapshot) => !!s && (s.busy || s.run?.status === 'RUNNING' || s.tasks.some((t) => t.status === 'IN_PROGRESS'));
@@ -48,6 +49,7 @@ export default function Workspace() {
 
   return (
     <div className="mx-auto max-w-[1560px] px-4 py-5">
+      <Announcer s={s} />
       <OpsBar s={s} loadedAt={snap.loadedAt} error={snap.error} pollMs={pollFor(s)} />
 
       <div className="mt-4 space-y-4">

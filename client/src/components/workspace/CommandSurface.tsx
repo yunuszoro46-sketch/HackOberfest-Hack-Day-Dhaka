@@ -63,7 +63,7 @@ export function CommandSurface({ projectId, lock, hasAgents, onSent, latest, tas
       </div>
       <ErrorNote error={error} />
       {latest && (
-        <div className="mt-3 rounded-md border border-line-soft bg-bg/60 p-3" role="status" data-testid="planner-note">
+        <div className="mt-3 rounded-md border border-line-soft bg-bg/60 p-3" data-testid="planner-note">
           <div className="flex flex-wrap items-center gap-2 text-2xs text-mute">
             <span className="kicker">Leader's last command</span>
             <span>· {timeAgo(latest.createdAt)}</span>

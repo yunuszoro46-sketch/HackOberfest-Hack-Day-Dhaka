@@ -40,6 +40,9 @@ test('375px: plan approval → run → failure decision → reject → completes
   await expect(card).toBeVisible({ timeout: 30_000 });
   await expect(card).toContainText('Retry or skip?');
   await expect(page.locator('[data-run-status="PAUSED"]').first()).toBeVisible();
+  // One polite live region announces the change (clocks are not live regions).
+  await expect(page.getByTestId('announcer')).toContainText('1 item needs your decision');
+  expect(await page.locator('[aria-live], [role=status]').count()).toBe(1);
   if (shots) await page.screenshot({ path: `${shots}/s2-decision-375.png`, fullPage: true });
   await card.getByLabel(/Instructions/).fill('Skip it, not needed for the demo');
   await card.getByRole('button', { name: /Reject/ }).click();

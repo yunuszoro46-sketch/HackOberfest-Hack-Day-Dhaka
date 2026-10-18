@@ -31,7 +31,7 @@ export function OpsBar({ s, loadedAt, error, pollMs }: { s: ProjectSnapshot; loa
       </div>
 
       <dl className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-2xs uppercase tracking-[0.12em] text-mute" data-testid="ops-bar">
-        <div className="flex items-center gap-1.5" role="status" aria-live="polite">
+        <div className="flex items-center gap-1.5">
           <span className={`h-2 w-2 rounded-full ${stale ? 'bg-amber-400' : 'bg-live'}`} aria-hidden />
           <dt className="sr-only">Connection</dt>
           <dd className={stale ? 'text-amber-300' : 'text-ink'}>
