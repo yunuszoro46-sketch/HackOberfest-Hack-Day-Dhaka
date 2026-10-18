@@ -35,7 +35,7 @@ export default function Landing() {
           <div key={s.title} className="card p-5">
             <div className="mb-3 flex items-center gap-3">
               <span className="grid h-9 w-9 place-items-center rounded-lg border border-line bg-surface-2">
-                <s.icon className="h-4.5 w-4.5 text-accent" aria-hidden />
+                <s.icon className="h-4.5 w-4.5 text-accent-ink" aria-hidden />
               </span>
               <span className="text-xs font-medium text-mute">Step {i + 1}</span>
             </div>

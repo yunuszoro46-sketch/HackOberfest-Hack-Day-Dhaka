@@ -14,7 +14,7 @@ export const STATUS_STYLE: Record<TaskStatus, { label: string; cls: string; dot:
 export function StatusBadge({ status }: { status: TaskStatus }) {
   const s = STATUS_STYLE[status];
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium ${s.cls}`} data-status={status}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-2xs font-medium ${s.cls}`} data-status={status}>
       <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} aria-hidden />
       {s.label}
     </span>
@@ -34,7 +34,7 @@ export function RoleChip({ role }: { role: AgentRole }) {
   const m = ROLE_META[role];
   const Icon = m.icon;
   return (
-    <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium ${m.cls}`}>
+    <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-medium ${m.cls}`}>
       <Icon className="h-3 w-3" aria-hidden />
       {m.short}
     </span>
@@ -45,7 +45,7 @@ export function ProviderBadge({ provider }: { provider: string }) {
   const isModel = provider === 'gemma';
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium ${isModel ? 'border-violet-500/40 text-violet-300' : 'border-line text-mute'}`}
+      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-medium ${isModel ? 'border-violet-500/40 text-violet-300' : 'border-line text-mute'}`}
       title={isModel ? 'Produced by the Gemma model' : 'Produced by a deterministic role template — no model involved'}
     >
       <Bot className="h-3 w-3" aria-hidden />

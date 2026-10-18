@@ -54,7 +54,7 @@ export default function Context() {
                     <li key={d.id} className="rounded-lg border border-line bg-bg p-3">
                       <p className="text-sm font-medium">{d.title}</p>
                       {d.rationale && <p className="mt-0.5 text-sm text-mute">{d.rationale}</p>}
-                      <p className="mt-1 text-[11px] text-mute">by {d.madeBy} · {timeAgo(d.createdAt)}</p>
+                      <p className="mt-1 text-2xs text-mute">by {d.madeBy} · {timeAgo(d.createdAt)}</p>
                     </li>
                   ))}
                 </ul>
@@ -76,7 +76,7 @@ export default function Context() {
                   {s.commands.map((c) => (
                     <li key={c.id} className="rounded-lg border border-line bg-bg p-3">
                       <p className="text-sm">“{c.text}”</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-mute"><ProviderBadge provider={c.plannerProvider} /> {timeAgo(c.createdAt)}</div>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-2xs text-mute"><ProviderBadge provider={c.plannerProvider} /> {timeAgo(c.createdAt)}</div>
                       {c.plannerNote && <p className="mt-1 text-xs text-mute">{c.plannerNote}</p>}
                     </li>
                   ))}

@@ -28,7 +28,7 @@ export default function CreateProject() {
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
-      <p className="text-xs font-medium uppercase tracking-wider text-accent">Step 1 of 2</p>
+      <p className="text-xs font-medium uppercase tracking-wider text-accent-ink">Step 1 of 2</p>
       <h1 className="mt-1 text-2xl font-semibold">Create a project</h1>
       <p className="mt-1 text-sm text-mute">Your teammates read the goal and constraints before every task.</p>
       <form onSubmit={submit} className="card mt-6 space-y-5 p-5" noValidate>

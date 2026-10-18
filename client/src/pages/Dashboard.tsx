@@ -19,7 +19,7 @@ export default function Dashboard() {
         <section className="lg:col-span-2" aria-labelledby="projects-h">
           <h2 id="projects-h" className="mb-3 flex items-center gap-2 text-sm font-medium text-mute"><FolderKanban className="h-4 w-4" aria-hidden /> Projects</h2>
           <AsyncState loading={projects.loading} error={projects.error} onRetry={projects.reload} empty={projects.data?.length === 0}
-            emptyText={<span>No projects yet. <Link className="text-accent underline" to="/projects/new">Create your first one</Link>.</span>}>
+            emptyText={<span>No projects yet. <Link className="text-accent-ink underline" to="/projects/new">Create your first one</Link>.</span>}>
             <ul className="grid gap-3 sm:grid-cols-2">
               {projects.data?.map((p) => (
                 <li key={p.id}>

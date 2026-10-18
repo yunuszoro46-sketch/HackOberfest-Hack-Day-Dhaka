@@ -39,7 +39,7 @@ export default function Agents() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <p className="text-xs font-medium uppercase tracking-wider text-accent">Step 2 of 2</p>
+      <p className="text-xs font-medium uppercase tracking-wider text-accent-ink">Step 2 of 2</p>
       <h1 className="mt-1 text-2xl font-semibold">Build your team{data.data ? ` for ${data.data[1].name}` : ''}</h1>
       <p className="mt-1 text-sm text-mute">Choose who works on this project. Tasks for roles you don't pick are kept, but blocked until you add that teammate.</p>
       <AsyncState loading={data.loading} error={data.error} onRetry={data.reload}>
@@ -56,16 +56,16 @@ export default function Agents() {
                 onClick={() => toggle(r.role)}
                 className={`card relative p-5 text-left transition ${on ? 'border-accent ring-1 ring-accent/60' : 'hover:border-accent/40'}`}
               >
-                {on && <CheckCircle2 className="absolute right-4 top-4 h-5 w-5 text-accent" aria-hidden />}
+                {on && <CheckCircle2 className="absolute right-4 top-4 h-5 w-5 text-accent-ink" aria-hidden />}
                 <span className={`mb-3 grid h-10 w-10 place-items-center rounded-lg border ${ROLE_META[r.role].cls}`}><Icon className="h-5 w-5" aria-hidden /></span>
                 <h2 className="font-semibold">{r.title}</h2>
                 <p className="mt-0.5 text-sm text-mute">{r.tagline}</p>
                 <ul className="mt-3 space-y-1 text-sm">
-                  {r.responsibilities.map((x) => <li key={x} className="flex gap-2"><span className="text-accent" aria-hidden>•</span>{x}</li>)}
+                  {r.responsibilities.map((x) => <li key={x} className="flex gap-2"><span className="text-accent-ink" aria-hidden>•</span>{x}</li>)}
                 </ul>
                 <div className="mt-4 flex flex-wrap gap-1">
                   {r.tools.map((t) => (
-                    <span key={t} className="inline-flex items-center gap-1 rounded border border-line bg-bg px-1.5 py-0.5 font-mono text-[10px] text-mute"><Wrench className="h-2.5 w-2.5" aria-hidden />{t}</span>
+                    <span key={t} className="inline-flex items-center gap-1 rounded border border-line bg-bg px-1.5 py-0.5 font-mono text-2xs text-mute"><Wrench className="h-2.5 w-2.5" aria-hidden />{t}</span>
                   ))}
                 </div>
               </button>

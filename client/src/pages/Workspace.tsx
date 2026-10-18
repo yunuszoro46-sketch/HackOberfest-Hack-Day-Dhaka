@@ -121,7 +121,7 @@ function CommandBar({ projectId, hasAgents, onSent }: { projectId: string; hasAg
         {!text && hasAgents && (
           <button type="button" className="btn-ghost btn-sm" onClick={() => setText(DEMO)}><Sparkles className="h-3 w-3" aria-hidden /> Use demo command</button>
         )}
-        {!hasAgents && <Link to={`/projects/${projectId}/agents`} className="text-accent underline">Pick your teammates</Link>}
+        {!hasAgents && <Link to={`/projects/${projectId}/agents`} className="text-accent-ink underline">Pick your teammates</Link>}
         <span className="hidden sm:inline">Ctrl/⌘ + Enter to send</span>
       </div>
       <ErrorNote error={error} />
@@ -144,7 +144,7 @@ function Roster({ s }: { s: ProjectSnapshot }) {
   return (
     <div className="card">
       <h2 className="flex items-center gap-2 border-b border-line px-4 py-3 text-sm font-medium"><Users className="h-4 w-4 text-mute" aria-hidden /> Team</h2>
-      <AsyncState loading={false} error={null} empty={s.agents.length === 0} emptyText={<Link className="text-accent underline" to={`/projects/${s.project.id}/agents`}>Add teammates</Link>}>
+      <AsyncState loading={false} error={null} empty={s.agents.length === 0} emptyText={<Link className="text-accent-ink underline" to={`/projects/${s.project.id}/agents`}>Add teammates</Link>}>
         <ul className="divide-y divide-line">
           {s.agents.map((a) => {
             const mine = s.tasks.filter((t) => t.role === a.role);
@@ -175,7 +175,7 @@ function Roster({ s }: { s: ProjectSnapshot }) {
         <div className="border-t border-line px-4 py-3 text-xs">
           <p className="mb-1.5 flex items-center gap-1 text-amber-300"><Lock className="h-3 w-3" aria-hidden /> Tasks waiting for:</p>
           {missing.map((r) => <p key={r} className="text-mute">{ROLE_TITLES[r]}</p>)}
-          <Link to={`/projects/${s.project.id}/agents`} className="mt-2 inline-block text-accent underline">Add to team</Link>
+          <Link to={`/projects/${s.project.id}/agents`} className="mt-2 inline-block text-accent-ink underline">Add to team</Link>
         </div>
       )}
     </div>
@@ -226,7 +226,7 @@ function Board({ s, onChange }: { s: ProjectSnapshot; onChange: () => void }) {
                   <span className="text-xs text-mute">{tasks.length}</span>
                 </div>
                 <div className="mt-1 space-y-2">
-                  {tasks.length === 0 && <p className="px-1.5 py-2 text-xs text-mute/60">—</p>}
+                  {tasks.length === 0 && <p className="px-1.5 py-2 text-xs text-mute">None</p>}
                   {tasks.map((t) => <TaskCard key={t.id} t={t} artifacts={artifactsByTask.get(t.id) ?? []} act={act} />)}
                 </div>
               </section>
@@ -249,7 +249,7 @@ function TaskCard({ t, artifacts, act }: { t: Task; artifacts: Artifact[]; act: 
     <article className="rounded-lg border border-line bg-surface p-3" data-task-title={t.title} data-task-status={t.status}>
       <div className="flex items-center gap-2">
         <RoleChip role={t.role} />
-        {t.attempts > 0 && <span className="text-[11px] text-mute">attempt {t.attempts}</span>}
+        {t.attempts > 0 && <span className="text-2xs text-mute">attempt {t.attempts}</span>}
       </div>
       <h3 className="mt-1.5 text-sm font-medium leading-snug">{t.title}</h3>
       {t.status === 'IN_PROGRESS' && <p className="mt-1 flex items-center gap-1.5 text-xs text-indigo-300"><Loader2 className="h-3 w-3 animate-spin" aria-hidden /> Working…</p>}
@@ -281,7 +281,7 @@ function TaskCard({ t, artifacts, act }: { t: Task; artifacts: Artifact[]; act: 
       {open && (
         <ul className="mt-2 space-y-1">
           {latest.map((a) => (
-            <li key={a.id}><Link to={`/artifacts/${a.id}`} className="block truncate font-mono text-[11px] text-accent hover:underline">{a.path}</Link></li>
+            <li key={a.id}><Link to={`/artifacts/${a.id}`} className="block truncate font-mono text-2xs text-accent-ink hover:underline">{a.path}</Link></li>
           ))}
         </ul>
       )}
@@ -299,13 +299,13 @@ function Feed({ events }: { events: ActivityEvent[] }) {
         <ol className="flex-1 space-y-0.5 overflow-y-auto p-2" aria-live="polite" aria-label="Activity feed">
           {events.map((e) =>
             e.type === 'tool_call' ? (
-              <li key={e.id} className="flex items-start gap-2 rounded-md bg-bg/60 px-2 py-1 font-mono text-[11px] text-mute">
-                <Terminal className="mt-0.5 h-3 w-3 shrink-0 text-accent/80" aria-hidden />
+              <li key={e.id} className="flex items-start gap-2 rounded-md bg-bg/60 px-2 py-1 font-mono text-2xs text-mute">
+                <Terminal className="mt-0.5 h-3 w-3 shrink-0 text-accent-ink/80" aria-hidden />
                 <span className="min-w-0 break-words"><span className="text-ink/70">{e.actor.split(' ')[0]}</span> {e.message}</span>
               </li>
             ) : (
               <li key={e.id} className="rounded-md px-2 py-1.5 text-xs">
-                <div className="flex justify-between gap-2 text-[11px] text-mute">
+                <div className="flex justify-between gap-2 text-2xs text-mute">
                   <span className="truncate">{e.actor}</span>
                   <time dateTime={e.createdAt} className="shrink-0">{timeAgo(e.createdAt)}</time>
                 </div>
@@ -337,10 +337,10 @@ function Deliverables({ s }: { s: ProjectSnapshot }) {
             return (
               <li key={a.id}>
                 <Link to={`/artifacts/${a.id}`} className="card flex items-start gap-3 p-3 transition hover:border-accent/50" data-artifact={a.path}>
-                  <Icon className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
+                  <Icon className="mt-0.5 h-4 w-4 shrink-0 text-accent-ink" aria-hidden />
                   <div className="min-w-0">
                     <p className="truncate font-mono text-xs">{a.path}</p>
-                    <p className="mt-0.5 text-[11px] text-mute">
+                    <p className="mt-0.5 text-2xs text-mute">
                       {a.kind} · {(a.size / 1024).toFixed(1)} KB{run ? ` · ${ROLE_META[run.role].short} run ${run.status}` : ''}
                     </p>
                   </div>
