@@ -106,6 +106,8 @@ export class FallbackChain {
       } catch (err) {
         if (!(err instanceof LlmError)) throw err;
         if (err.reason === 'ABORTED' || req.signal?.aborted) throw err;
+        // NOT_CONFIGURED is raised before any HTTP request, so it must not spend the run's request budget.
+        if (err.reason === 'NOT_CONFIGURED' && opts.run) opts.run.used -= 1;
         attempts.push({ ...base, reason: err.reason });
         const wait = (err.reason === 'RATE_LIMIT' || err.reason === 'QUOTA') && err.retryAfterSec !== undefined ? err.retryAfterSec * 1000 : this.cooldownMs[err.reason];
         if (wait) this.coolUntil.set(client.id, { until: this.now() + wait, reason: err.reason });
