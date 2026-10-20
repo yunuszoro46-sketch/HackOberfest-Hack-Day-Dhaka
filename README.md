@@ -182,6 +182,56 @@ A provider layer for IdeaMate's optional model-backed report runs lives in `serv
 - IdeaMate Quick mode uses a budget of up to four council calls; Deep uses up to five. The page displays the configured providers and estimated call budget before approval, then shows progress and provider/model details as turns complete.
 - Council runs are approval-gated and stored: `POST /api/ideas/runs` creates one, `POST /api/ideas/runs/:id/approve` starts it, `GET /api/ideas/runs/:id` returns its status and turn-by-turn transcript. The chair generates the Idea Card and Solidity check when synthesis succeeds; simulations, system design and UI/UX remain rule-based.
 
+## IdeaMate Progress and Remaining Work
+
+**Status snapshot: 2026-10-21.** The latest verified repository commit is `6f881fc` (`feat: connect IdeaMate to approved council runs`). That implementation was pushed to `main`.
+
+### Delivered milestones
+
+| Commit | Milestone |
+|---|---|
+| `9c798ce` | Idea Card, scoring model and report endpoint |
+| `9468fc4` | Official-API reference research, approval and link checks |
+| `f7bbc7e` | Upgrade suggestions and scenario simulations |
+| `db5d04c` | System-design and UI/UX recommendations |
+| `712394d` | IdeaMate report UI, modes, rerun comparison and E2E coverage |
+| `855eb62` | Optional LLM provider layer and fallback chain |
+| `64acd0f` | Multi-role council drafts, critique, synthesis and fallback |
+| `d3cf2b0` | Approval-gated, SQLite-persisted council runs and turn transcripts |
+| `6f881fc` | Connect IdeaMate UI to council approval/progress; add chair-generated Idea Card |
+
+### Implemented
+
+| Area | Current state |
+|---|---|
+| Idea input and report model | Shared TypeScript types and a validated report endpoint accept an idea plus optional theme, time, team skills, judges and Quick/Deep mode. |
+| Idea Card and solidity score | Rule-based report generation provides a fallback. With successful council synthesis, the chair generates the Idea Card and scores seven criteria, then supplies the verdict, risks, recommendations and judge questions. Council criterion scores are marked `Inferred`. |
+| Reference research | Deep mode offers separately approved research through the official GitHub Search API and configured YouTube Data API. Returned links are checked, failures are shown, and short original summaries are stored in the result. Results use an in-memory six-hour cache. |
+| Suggestions and scenarios | Reports include grouped upgrade suggestions, user walkthroughs, judge questions, failure plans, a time-crunch cut line and best/expected/worst impact scenarios. These sections remain rule-based. |
+| System and UI/UX direction | Reports include architecture options, a selected option, Mermaid diagram, data model, suggested endpoints, decision record, design principles, screens, flow, components and design references. These sections remain rule-based. |
+| Report experience | IdeaMate presents the report, offers Quick and Deep modes, gates research behind separate approval and compares the score with the preceding report in the current page session. |
+| Model provider layer and council | Optional Groq, Gemini, OpenRouter and Ollama clients use structured JSON validated against schemas, provider fallback and request budgets. The council runs draft → critique → synthesis, records turns and falls back to rule-based output when necessary. |
+| Run approval and persistence | A council run is created awaiting approval; approval starts model calls. Runs and turn transcripts persist in SQLite, cancellation is supported, and runs interrupted by a server restart are marked failed. |
+| Existing TeamMate foundation | The project/task workflow, human approvals, supervision, artifacts, activity tracking and SQLite-backed project state remain in the repository. TeamMate has not been removed. |
+
+### Not implemented or still needing a decision
+
+- **Give-me-ideas mode:** Generate five candidate ideas from the theme, show one-line pitches and let the user select one.
+- **Build and Pitch Plan:** Add an hour-by-hour schedule, team roles, MVP cut line, demo script and five-slide pitch outline.
+- **Export:** Add Markdown or PDF export for a completed report.
+- **Quick/Deep distinction:** Both modes currently show the same full report sections. Quick mainly uses a smaller council budget (up to four calls); Deep allows up to five and offers separately approved reference research. A genuinely concise, faster Quick output is still needed to meet the original ~60-second goal.
+- **Report history in the UI:** Runs and transcripts are stored and API endpoints exist, but the page does not provide a history list or restore a previous run/report after reload. Score comparison is page-session state, not a saved iteration history.
+- **Research quality and coverage:** External research is limited to GitHub repositories and YouTube videos. Similarity is estimated with token overlap, and summaries are based on API metadata rather than substantive source review. Design references are static recommendations; design sites are not bulk-scraped.
+- **Evidence and model quality:** The chair generates the Idea Card when synthesis succeeds; if it fails, the Idea Card falls back to rule-based output while scores/recommendations may use member drafts. Simulations, system design and UI/UX remain deterministic/rule-based. Add source-backed evidence where needed and preserve explicit uncertainty and fallback labels.
+- **Provider policy and operations:** Review provider ordering, model availability and quotas, privacy/terms suitability for the intended audience, persistent cache/rate-limit behavior and monitoring before production use. Keep credentials in environment/deployment secrets; do not commit keys.
+- **TeamMate keep/remove decision:** The original TeamMate system is intentionally still present. Decide which legacy workflows remain part of the product before removing or rebranding them.
+- **Remaining TeamMate prototype limits:** Most teammate artifact generation is template-based, task execution is sequential, and there is no dedicated OS-level sandbox. These are separate from IdeaMate report generation.
+- **License:** No license has been selected or added. Decide the license before inviting reuse or describing the repository as licensed for reuse.
+
+### Last verification
+
+At commit `6f881fc`, `npm test` passed (77 tests), `npm run build` passed (client production build and server typecheck), and `npm run test:e2e` passed (5 browser tests). Re-run these checks after future code changes; this README-only update does not change runtime behavior.
+
 ## Project Structure
 
 ```text
@@ -196,30 +246,6 @@ HackOberfest-Hack-Day-Dhaka/
 ├── package.json         # Scripts and dependencies
 └── README.md
 ```
-
-## Current Limitations
-
-TeamMate is a working prototype, and some capabilities remain intentionally limited:
-
-- Default agent outputs are template-based rather than fully LLM-generated code.
-- Gemma is used for planning, not as an autonomous coding model for every role.
-- Tasks execute sequentially rather than concurrently.
-- Agent execution is restricted to a small set of permitted operations.
-- The application does not provide a dedicated OS-level sandbox for generated code.
-- Mobile supervision is an in-app interface, not a push-notification service.
-
-These limitations define the current scope and provide clear directions for future development.
-
-## Roadmap
-
-Potential next steps include:
-
-- Model-powered artifact generation for additional teammate roles
-- Stronger isolation for executing generated code
-- More sophisticated task dependencies and parallel execution
-- Improved model-provider observability and retry handling
-- Richer collaboration between specialized agents
-- More advanced remote supervision and notifications
 
 ## Contributing
 
