@@ -108,19 +108,113 @@ describe('idea council runs API', () => {
     expect((await app.http.post(`/api/ideas/runs/${c.id}/approve`)).status).toBe(200);
   });
 
-  it('marks runs interrupted by a restart as FAILED', async () => {
+  it('fails runs abandoned by a stopped server, but only once their lease has expired', async () => {
+    const dir = tmpDir();
+    const first = makeApp({ dir, llm: llmOf() });
+    const ids = await Promise.all([0, 1].map(async () => (await first.http.post('/api/ideas/runs').send(IDEA)).body.id as string));
+    // What a crashed process leaves behind: RUNNING rows nobody heartbeats. One expired long ago, one only just.
+    const leave = first.db.prepare("UPDATE idea_runs SET status = 'RUNNING', owner = 'dead', heartbeat_at = ? WHERE id = ?");
+    leave.run('2000-01-01T00:00:00.000Z', ids[0]);
+    leave.run(new Date().toISOString(), ids[1]);
+
+    const second = makeApp({ dir, llm: llmOf(new Fake()), councilLeaseMs: 200 });
+    expect(second.recoveredIdeaRuns).toEqual([ids[0]]);
+    const d = (await second.http.get(`/api/ideas/runs/${ids[0]}`)).body;
+    expect(d.status).toBe('FAILED');
+    expect(d.error).toContain('server restart');
+    expect((await second.http.get(`/api/ideas/runs/${ids[1]}`)).body.status).toBe('RUNNING');
+
+    await new Promise((r) => setTimeout(r, 250));
+    expect((await second.http.get(`/api/ideas/runs/${ids[1]}`)).body.status).toBe('FAILED');
+  });
+
+  it('a second server starting on the same database leaves a live run alone, and it still completes', async () => {
     const dir = tmpDir();
     const fake = new Fake();
-    fake.gate = new Promise(() => {});
+    let open!: () => void;
+    fake.gate = new Promise((resolve) => { open = resolve; });
     const first = makeApp({ dir, llm: llmOf(fake) });
     const { body: run } = await first.http.post('/api/ideas/runs').send(IDEA);
     await first.http.post(`/api/ideas/runs/${run.id}/approve`);
 
     const second = makeApp({ dir, llm: llmOf(new Fake()) });
-    expect(second.recoveredIdeaRuns).toEqual([run.id]);
+    expect(second.recoveredIdeaRuns).toEqual([]);
+    expect((await second.http.get(`/api/ideas/runs/${run.id}`)).body.status).toBe('RUNNING');
+
+    open();
+    await first.council.idle(run.id);
     const d = (await second.http.get(`/api/ideas/runs/${run.id}`)).body;
+    expect(d).toMatchObject({ status: 'COMPLETED', error: null });
+    expect(d.turns).toHaveLength(5);
+  });
+
+  it('allows one running council across servers sharing a database', async () => {
+    const dir = tmpDir();
+    const fake = new Fake();
+    let open!: () => void;
+    fake.gate = new Promise((resolve) => { open = resolve; });
+    const a = makeApp({ dir, llm: llmOf(fake) });
+    const other = new Fake();
+    const b = makeApp({ dir, llm: llmOf(other) });
+    const { body: one } = await a.http.post('/api/ideas/runs').send(IDEA);
+    const { body: two } = await b.http.post('/api/ideas/runs').send(IDEA);
+    expect((await a.http.post(`/api/ideas/runs/${one.id}/approve`)).status).toBe(200);
+    const busy = await b.http.post(`/api/ideas/runs/${two.id}/approve`);
+    expect(busy.status).toBe(409);
+    expect(busy.body.error).toMatchObject({ code: 'RUN_ACTIVE', details: { runId: one.id } });
+    expect(other.calls).toBe(0);
+
+    open();
+    await a.council.idle(one.id);
+    expect((await b.http.post(`/api/ideas/runs/${two.id}/approve`)).status).toBe(200);
+    await b.council.idle(two.id);
+    expect((await b.http.get(`/api/ideas/runs/${two.id}`)).body.status).toBe('COMPLETED');
+  });
+
+  it('a cancel handled by another server stops the owner before it records or calls anything more', async () => {
+    const dir = tmpDir();
+    const fake = new Fake();
+    let open!: () => void;
+    fake.gate = new Promise((resolve) => { open = resolve; });
+    const a = makeApp({ dir, llm: llmOf(fake) });
+    const b = makeApp({ dir, llm: llmOf(new Fake()) });
+    const { body: run } = await a.http.post('/api/ideas/runs').send(IDEA);
+    await a.http.post(`/api/ideas/runs/${run.id}/approve`);
+    expect((await b.http.post(`/api/ideas/runs/${run.id}/cancel`)).body.status).toBe('CANCELLED');
+
+    open(); // the in-flight call returns after the cancel
+    await a.council.idle(run.id);
+    const d = (await b.http.get(`/api/ideas/runs/${run.id}`)).body;
+    expect(d).toMatchObject({ status: 'CANCELLED', report: null, turns: [] });
+    expect(fake.calls).toBe(1);
+  });
+
+  it('a cancel handled by another server aborts the owner\'s in-flight call on its next heartbeat', async () => {
+    const dir = tmpDir();
+    const fake = new Fake();
+    fake.gate = new Promise(() => {});
+    const a = makeApp({ dir, llm: llmOf(fake), councilLeaseMs: 90 });
+    const b = makeApp({ dir, llm: llmOf(new Fake()) });
+    const { body: run } = await a.http.post('/api/ideas/runs').send(IDEA);
+    await a.http.post(`/api/ideas/runs/${run.id}/approve`);
+    await b.http.post(`/api/ideas/runs/${run.id}/cancel`);
+    await a.council.idle(run.id); // would hang forever without the heartbeat abort
+    expect(fake.calls).toBe(1);
+    expect((await a.http.get(`/api/ideas/runs/${run.id}`)).body).toMatchObject({ status: 'CANCELLED', turns: [] });
+  });
+
+  it('graceful shutdown fails its own running councils immediately', async () => {
+    const dir = tmpDir();
+    const fake = new Fake();
+    fake.gate = new Promise(() => {});
+    const a = makeApp({ dir, llm: llmOf(fake) });
+    const { body: run } = await a.http.post('/api/ideas/runs').send(IDEA);
+    await a.http.post(`/api/ideas/runs/${run.id}/approve`);
+    expect(a.council.stop()).toEqual([run.id]);
+    await a.council.idle(run.id);
+    const d = (await makeApp({ dir, llm: llmOf() }).http.get(`/api/ideas/runs/${run.id}`)).body;
     expect(d.status).toBe('FAILED');
-    expect(d.error).toContain('server restart');
+    expect(d.error).toContain('server shutdown');
   });
 
   it('validates input and unknown ids', async () => {

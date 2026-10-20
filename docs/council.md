@@ -17,7 +17,7 @@ The council therefore uses its own small runner (`server/src/council/runner.ts`)
 | Plan approval gate (`AWAITING_APPROVAL` → `RUNNING`) | Idea run created awaiting approval; LLM calls only start after the user approves (Phase D2 API) |
 | Run budget (`maxTasks`, `maxRuntimeMs`) | `maxCalls` real provider requests per run, retries included (default 5), on top of the provider RPM/RPD budgets in `FallbackChain`; one is reserved for the chair |
 | Cancel | `AbortSignal`; an aborted run rejects with `LlmError` reason `ABORTED`, also when aborted before the first call, while the last call resolves, or from inside `onTurn` |
-| Restart recovery | Persisted runs left `RUNNING` are marked failed on boot (Phase D1) |
+| Restart recovery | A `RUNNING` run is leased by the server process that approved it; runs whose lease expired are marked failed (Phase D1) |
 | Activity log / handoffs | `onTurn` callback emits each `CouncilTurn` in order for persistence and the transcript UI |
 | Rule-based planner fallback | Rule-based `scoreIdea` report fallback |
 
@@ -68,12 +68,19 @@ are applied on our side instead: scores are clamped to 0–100, text is cut and 
 | Endpoint | Effect |
 |---|---|
 | `POST /api/ideas/runs` | Body: the IdeaMate input plus optional `maxCalls` (2–20, default 5). Creates a run `AWAITING_APPROVAL`; no LLM call |
-| `POST /api/ideas/runs/:id/approve` | `AWAITING_APPROVAL` → `RUNNING`; the council runs in the background. Only one run at a time (`409 RUN_ACTIVE`) |
+| `POST /api/ideas/runs/:id/approve` | `AWAITING_APPROVAL` → `RUNNING`; the council runs in the background. Only one run at a time across every server sharing the database (`409 RUN_ACTIVE`) |
 | `POST /api/ideas/runs/:id/cancel` | Open run → `CANCELLED`; a running council is aborted and stores no report |
 | `GET /api/ideas/runs/:id` | Run, its turns in order (`seq`, role, provider, model, attempts, usage, output) and the providers configured now |
 | `GET /api/ideas/runs` | Latest runs, newest first |
 
 Each turn is written as it finishes, so a client can poll the transcript while the run is `RUNNING`. A run ends
 `COMPLETED` with a report (council or rule-based fallback, see `fallback`), `CANCELLED`, or `FAILED`. Runs left
-`RUNNING` by a restart are marked `FAILED` on boot. With no provider keys, an approved run completes immediately
+`RUNNING` by a stopped server are marked `FAILED` once their lease expires. With no provider keys, an approved run completes immediately
 with the rule-based report and `fallback: 'NOT_CONFIGURED'`, so mock mode and E2E stay deterministic.
+
+Several server processes may share one database. The process that approves a run claims it atomically (no other run
+`RUNNING`) and owns it: it writes its id to `owner` and refreshes `heartbeat_at` every `leaseMs / 3` (lease 30 s by
+default). Boot, list and detail requests fail only runs whose heartbeat is older than the lease, so a second server
+starting up leaves a live run alone. A cancel can be handled by any process; the owner notices on its next heartbeat,
+provider call, or turn, aborts, and records nothing more. Turns and the final status are written only while the
+process still owns the run. On `SIGINT`/`SIGTERM` the server fails its own running councils immediately.

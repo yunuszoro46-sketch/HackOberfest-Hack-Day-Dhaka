@@ -1,7 +1,7 @@
 import { createApp } from './app';
 
 const port = Number(process.env.PORT) || 3001;
-const { app, recovered, providers } = createApp();
+const { app, recovered, providers, council } = createApp();
 
 const server = app.listen(port, () => {
   console.log(`TeamMate API on http://localhost:${port} (planner: ${providers.planner.name}, runner: ${providers.runner.name})`);
@@ -10,6 +10,7 @@ const server = app.listen(port, () => {
 
 for (const sig of ['SIGINT', 'SIGTERM'] as const) {
   process.on(sig, () => {
+    council.stop();
     server.closeAllConnections();
     server.close(() => process.exit(0));
   });

@@ -176,4 +176,13 @@ CREATE TABLE idea_run_turns (
 );
 `,
   },
+  {
+    // Idea council run lease: which server process owns a RUNNING run, and when it last proved it was alive.
+    name: '004_idea_run_lease',
+    sql: `
+ALTER TABLE idea_runs ADD COLUMN owner TEXT;
+ALTER TABLE idea_runs ADD COLUMN heartbeat_at TEXT;
+CREATE INDEX idx_idea_runs_status ON idea_runs(status);
+`,
+  },
 ];

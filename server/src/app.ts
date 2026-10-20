@@ -24,6 +24,8 @@ export interface AppOptions {
   runTimeoutMs?: number;
   researchService?: IdeaResearchService;
   llm?: LlmSetup;
+  /** Idea council run lease; see CouncilService. */
+  councilLeaseMs?: number;
 }
 
 const ProjectBody = z.object({
@@ -85,7 +87,7 @@ export function createApp(opts: AppOptions = {}) {
   const llm = opts.llm ?? createLlm();
   const orch = new Orchestrator(repo, providers, workspaceRoot, { runTimeoutMs: opts.runTimeoutMs });
   const recovered = orch.boot();
-  const council = new CouncilService(new IdeaRunRepo(db), llm.chain);
+  const council = new CouncilService(new IdeaRunRepo(db), llm.chain, { leaseMs: opts.councilLeaseMs });
   const recoveredIdeaRuns = council.boot();
 
   const app = express();
