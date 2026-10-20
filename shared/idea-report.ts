@@ -118,9 +118,21 @@ export interface UiUxDirection {
   references: DesignReference[];
 }
 
+export interface CouncilSummary {
+  /** Council roles whose turn succeeded, in turn order. */
+  members: string[];
+  /** Providers that answered at least one turn. */
+  providers: string[];
+  /** LLM calls made (each may have fallen back across providers). */
+  calls: number;
+  /** Set when the council ran degraded, e.g. the chair failed and drafts were averaged. */
+  note?: string;
+}
+
 export interface IdeaAnalysis {
-  method: 'rule-based';
+  method: 'rule-based' | 'council';
   limitation: string;
+  council?: CouncilSummary;
 }
 
 export interface IdeaReport {
@@ -578,6 +590,8 @@ function buildUiUxDirection(): UiUxDirection {
   };
 }
 
+export const verdictFor = (overallScore: number): IdeaVerdict => (overallScore >= 75 ? 'Build' : overallScore >= 60 ? 'Pivot' : 'Drop');
+
 export function scoreIdea(input: IdeaInput): IdeaReport {
   const mode: IdeaMode = input.mode ?? 'quick';
   const normalizedInput: IdeaInput = {
@@ -593,7 +607,7 @@ export function scoreIdea(input: IdeaInput): IdeaReport {
   const criteria = IDEA_CRITERIA.map((criterion) => rateCriterion(criterion, normalizedInput, normalizedInput.idea));
   const overallScore = Math.round(criteria.reduce((sum, item) => sum + item.score, 0) / criteria.length);
 
-  const verdict: IdeaVerdict = overallScore >= 75 ? 'Build' : overallScore >= 60 ? 'Pivot' : 'Drop';
+  const verdict = verdictFor(overallScore);
   const hasSpecificUser = /(for|users?|students?|parents?|farmers?|small businesses?|commuters?|drivers?|patients?|workers?|teams?)/i.test(normalizedInput.idea);
   const hasDemoSignal = /(dashboard|map|flow|booking|tracking|alerts|recommend|search|filter|upload|share|voice|ai)/i.test(normalizedInput.idea);
   const upgrades = buildUpgradeSuggestions(normalizedInput, hasSpecificUser, hasDemoSignal);

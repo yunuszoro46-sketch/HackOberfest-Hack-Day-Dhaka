@@ -177,6 +177,7 @@ A provider layer for upcoming model-backed features lives in `server/src/llm/`. 
 - Providers are tried in `LLM_PROVIDERS` order; a provider that is rate limited, over its request budget, or failing is skipped.
 - Every reply must be JSON that matches a zod schema.
 - Variable names and free-tier defaults are in `.env.example`. `GET /api/llm/status` shows which providers are configured and their usage (never keys).
+- The idea council (`server/src/council/`) drafts, critiques and synthesises an idea assessment across these providers, falling back to the rule-based report. Design and degradation rules: [docs/council.md](docs/council.md).
 
 ## Project Structure
 
