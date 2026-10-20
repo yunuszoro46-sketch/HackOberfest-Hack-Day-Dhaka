@@ -178,6 +178,7 @@ A provider layer for upcoming model-backed features lives in `server/src/llm/`. 
 - Every reply must be JSON that matches a zod schema.
 - Variable names and free-tier defaults are in `.env.example`. `GET /api/llm/status` shows which providers are configured and their usage (never keys).
 - The idea council (`server/src/council/`) drafts, critiques and synthesises an idea assessment across these providers, falling back to the rule-based report. Design and degradation rules: [docs/council.md](docs/council.md).
+- Council runs are approval-gated and stored: `POST /api/ideas/runs` creates one, `POST /api/ideas/runs/:id/approve` starts it, `GET /api/ideas/runs/:id` returns its status and turn-by-turn transcript.
 
 ## Project Structure
 

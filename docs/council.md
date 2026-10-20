@@ -59,3 +59,21 @@ The idea card, simulations, time-crunch plan, system design and UI/UX direction 
 Each schema is built once with small helpers (`server/src/council/schema.ts`), which produce the zod validator
 and the strict JSON Schema together. Some strict structured-output modes reject `minimum`/`maxItems`, so bounds
 are applied on our side instead: scores are clamped to 0–100, text is cut and lists are truncated.
+
+## Runs, approval and persistence (Phase D)
+
+`CouncilService` (`server/src/council/service.ts`) wraps `runCouncil` in an approval-gated run stored in SQLite
+(`idea_runs`, `idea_run_turns`; migration `003_idea_runs`).
+
+| Endpoint | Effect |
+|---|---|
+| `POST /api/ideas/runs` | Body: the IdeaMate input plus optional `maxCalls` (2–20, default 5). Creates a run `AWAITING_APPROVAL`; no LLM call |
+| `POST /api/ideas/runs/:id/approve` | `AWAITING_APPROVAL` → `RUNNING`; the council runs in the background. Only one run at a time (`409 RUN_ACTIVE`) |
+| `POST /api/ideas/runs/:id/cancel` | Open run → `CANCELLED`; a running council is aborted and stores no report |
+| `GET /api/ideas/runs/:id` | Run, its turns in order (`seq`, role, provider, model, attempts, usage, output) and the providers configured now |
+| `GET /api/ideas/runs` | Latest runs, newest first |
+
+Each turn is written as it finishes, so a client can poll the transcript while the run is `RUNNING`. A run ends
+`COMPLETED` with a report (council or rule-based fallback, see `fallback`), `CANCELLED`, or `FAILED`. Runs left
+`RUNNING` by a restart are marked `FAILED` on boot. With no provider keys, an approved run completes immediately
+with the rule-based report and `fallback: 'NOT_CONFIGURED'`, so mock mode and E2E stay deterministic.
