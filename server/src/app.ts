@@ -10,6 +10,7 @@ import { openDb, SERVER_ROOT, type DB } from './db/db';
 import { Repo } from './db/repo';
 import { ApiErr, notFound } from './http/errors';
 import { createProviders, type Providers } from './providers';
+import { createIdeaResearchService, type IdeaResearchService } from './research/idea-research';
 
 export interface AppOptions {
   dbFile?: string;
@@ -17,6 +18,7 @@ export interface AppOptions {
   providers?: Providers;
   serveClient?: boolean;
   runTimeoutMs?: number;
+  researchService?: IdeaResearchService;
 }
 
 const ProjectBody = z.object({
@@ -49,6 +51,9 @@ const IdeaBody = z.object({
   targetJudges: z.string().trim().max(200).optional().nullable(),
   mode: z.enum(['quick', 'deep']).default('quick'),
 });
+const IdeaResearchBody = IdeaBody.extend({
+  confirmed: z.literal(true, { message: 'Confirm before starting external research' }),
+});
 const TaskPatch = z
   .object({
     status: z.enum(TASK_STATUSES).optional(),
@@ -68,6 +73,7 @@ export function createApp(opts: AppOptions = {}) {
   const repo = new Repo(db);
   const workspaceRoot = opts.workspaceRoot ?? process.env.TEAMMATE_WORKSPACE ?? path.join(SERVER_ROOT, 'workspace');
   const providers = opts.providers ?? createProviders();
+  const researchService = opts.researchService ?? createIdeaResearchService();
   const orch = new Orchestrator(repo, providers, workspaceRoot, { runTimeoutMs: opts.runTimeoutMs });
   const recovered = orch.boot();
 
@@ -91,6 +97,12 @@ export function createApp(opts: AppOptions = {}) {
   app.post('/api/ideas/report', (req, res) => {
     const body = parse(IdeaBody, req.body);
     res.status(201).json(scoreIdea(body));
+  });
+
+  app.post('/api/ideas/research', async (req, res) => {
+    const body = parse(IdeaResearchBody, req.body);
+    const { confirmed: _confirmed, ...input } = body;
+    res.status(200).json(await researchService.research(input));
   });
 
   app.get('/api/roles', (_req, res) => { res.json(ROLE_LIST); });
