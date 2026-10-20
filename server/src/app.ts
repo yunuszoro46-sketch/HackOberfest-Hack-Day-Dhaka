@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
 import { AGENT_ROLES, TASK_STATUSES, type ProjectSnapshot } from '../../shared/types';
+import { scoreIdea } from '../../shared/idea-report';
 import { Orchestrator } from './agents/orchestrator';
 import { ROLE_LIST } from './agents/roles';
 import { openDb, SERVER_ROOT, type DB } from './db/db';
@@ -40,6 +41,14 @@ const CommandBody = z.object({
   maxRuntimeMs: z.number().int().min(1000).max(24 * 60 * 60 * 1000).optional(),
 });
 const DecisionResolve = z.object({ action: z.enum(['approve', 'reject']), instructions: z.string().trim().max(2000).optional() });
+const IdeaBody = z.object({
+  idea: z.string().trim().min(1, 'Idea is required').max(500),
+  theme: z.string().trim().max(200).optional().nullable(),
+  hoursLeft: z.number().int().min(1).max(1000).optional().nullable(),
+  teamSkills: z.string().trim().max(200).optional().nullable(),
+  targetJudges: z.string().trim().max(200).optional().nullable(),
+  mode: z.enum(['quick', 'deep']).default('quick'),
+});
 const TaskPatch = z
   .object({
     status: z.enum(TASK_STATUSES).optional(),
@@ -77,6 +86,11 @@ export function createApp(opts: AppOptions = {}) {
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true, plannerProvider: providers.planner.name, runnerProvider: providers.runner.name });
+  });
+
+  app.post('/api/ideas/report', (req, res) => {
+    const body = parse(IdeaBody, req.body);
+    res.status(201).json(scoreIdea(body));
   });
 
   app.get('/api/roles', (_req, res) => { res.json(ROLE_LIST); });
