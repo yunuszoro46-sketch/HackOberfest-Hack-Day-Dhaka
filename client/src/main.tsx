@@ -12,6 +12,7 @@ import Context from './pages/Context';
 import ArtifactView from './pages/ArtifactView';
 import NotFound from './pages/NotFound';
 import Supervise from './pages/Supervise';
+import IdeaMate from './pages/IdeaMate';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -19,6 +20,7 @@ createRoot(document.getElementById('root')!).render(
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Landing />} />
+          <Route path="/ideas" element={<IdeaMate />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/projects/new" element={<CreateProject />} />
           <Route path="/projects/:id/agents" element={<Agents />} />

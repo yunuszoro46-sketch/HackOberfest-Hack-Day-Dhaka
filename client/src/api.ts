@@ -2,6 +2,8 @@ import type {
   ActivityEvent, Artifact, ArtifactDetail, CommandResponse, Decision, Project, ProjectAgent, ProjectSnapshot,
   RoleDefinition, Task, TaskDetail, TaskStatus, AgentRole, Run, PendingDecision, DecisionAction,
 } from '../../shared/types';
+import type { IdeaInput, IdeaReport } from '../../shared/idea-report';
+import type { IdeaResearchResult } from '../../shared/idea-research';
 
 export class ApiError extends Error {
   code: string;
@@ -54,4 +56,7 @@ export const api = {
   resolveDecision: (id: string, action: DecisionAction, instructions?: string) =>
     req<PendingDecision>('POST', `/api/decisions/${id}`, { action, ...(instructions?.trim() ? { instructions } : {}) }),
   recentActivity: () => req<(ActivityEvent & { projectName: string })[]>('GET', '/api/activity/recent'),
+  createIdeaReport: (input: IdeaInput) => req<IdeaReport>('POST', '/api/ideas/report', input),
+  researchIdea: (input: IdeaInput) =>
+    req<IdeaResearchResult>('POST', '/api/ideas/research', { ...input, confirmed: true }),
 };

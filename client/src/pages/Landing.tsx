@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { ArrowRight, FileCode2, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, FileCode2, Lightbulb, Sparkles, Users } from 'lucide-react';
 
 const STEPS = [
   { icon: Users, title: 'Build your team', body: 'Pick specialised AI teammates — frontend, backend, QA, docs and more.' },
@@ -24,6 +24,9 @@ export default function Landing() {
           TeamMate turns one command from the team leader into assigned tasks, real files and test results — with every step visible and every status under your control.
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+          <Link to="/ideas" className="btn-primary px-5 py-2.5 text-base">
+            Try IdeaMate <Lightbulb className="h-4 w-4" aria-hidden />
+          </Link>
           <Link to="/projects/new" className="btn-primary px-5 py-2.5 text-base">
             Build Your Team <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>

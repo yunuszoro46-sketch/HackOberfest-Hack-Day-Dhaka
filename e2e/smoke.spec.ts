@@ -37,6 +37,56 @@ test('landing → create → team → command → QA report says PASS', async ({
   if (shots) await page.screenshot({ path: `${shots}/4-qa-report.png` });
 });
 
+test('IdeaMate generates a report and compares an edited rerun', async ({ page }) => {
+  await page.goto('/ideas');
+  await expect(page.getByRole('heading', { name: 'IdeaMate' })).toBeVisible();
+  await page.getByLabel('Your idea').fill('A mobile app for Dhaka commuters to find safe parking with live availability alerts.');
+  await page.getByRole('button', { name: 'Generate Idea Report' }).click();
+  await expect(page.getByRole('heading', { name: 'Idea verdict' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'System design recommendation' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'UI/UX direction' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Iteration comparison' })).toHaveCount(0);
+
+  await page.getByLabel('Your idea').fill('A mobile app for Dhaka commuters to find safe parking with live availability alerts, route suggestions, and verified community reports.');
+  await page.getByRole('button', { name: 'Re-run with this idea' }).click();
+  await expect(page.getByRole('heading', { name: 'Iteration comparison' })).toBeVisible();
+  await expect(page.getByText('Current', { exact: true })).toBeVisible();
+});
+
+test('IdeaMate Deep mode gates research behind approval and fits mobile width', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto('/ideas');
+  await page.getByLabel('Your idea').fill('A study room finder for university students with live availability.');
+  await page.getByRole('radio').nth(1).click();
+  let researchRequested = false;
+  await page.route('**/api/ideas/research', async (route) => {
+    researchRequested = true;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'unavailable',
+        cached: false,
+        completedAt: new Date().toISOString(),
+        references: [],
+        providers: [
+          { provider: 'github', status: 'failed', message: 'Unavailable in test.', resultCount: 0 },
+          { provider: 'youtube', status: 'unavailable', message: 'Not configured.', resultCount: 0 },
+        ],
+        unreachable: [],
+      }),
+    });
+  });
+  await page.getByRole('button', { name: 'Generate Idea Report' }).click();
+  await expect(page.getByRole('heading', { name: 'Approve reference research?' })).toBeVisible();
+  expect(researchRequested).toBe(false);
+  await page.getByRole('button', { name: 'Approve and start research' }).click();
+  await expect(page.getByRole('heading', { name: 'Reference research' })).toBeVisible();
+  expect(researchRequested).toBe(true);
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
 test('workspace has no horizontal scroll at 375px', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto('/dashboard');
@@ -44,7 +94,7 @@ test('workspace has no horizontal scroll at 375px', async ({ page }) => {
   const p = await res.json();
   await page.request.put(`/api/projects/${p.id}/agents`, { data: { agents: [{ role: 'frontend' }, { role: 'qa' }] } });
   await page.request.post(`/api/projects/${p.id}/commands`, { data: { text: DEMO } });
-  for (const path of ['/', '/dashboard', `/projects/${p.id}`, `/projects/${p.id}/agents`, `/projects/${p.id}/context`]) {
+  for (const path of ['/', '/dashboard', '/ideas', `/projects/${p.id}`, `/projects/${p.id}/agents`, `/projects/${p.id}/context`]) {
     await page.goto(path);
     await page.waitForLoadState('networkidle');
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
