@@ -77,3 +77,13 @@ Each turn is written as it finishes, so a client can poll the transcript while t
 `COMPLETED` with a report (council or rule-based fallback, see `fallback`), `CANCELLED`, or `FAILED`. Runs left
 `RUNNING` by a restart are marked `FAILED` on boot. With no provider keys, an approved run completes immediately
 with the rule-based report and `fallback: 'NOT_CONFIGURED'`, so mock mode and E2E stay deterministic.
+
+## IdeaMate UI (Phase E)
+
+After a report is generated, IdeaMate shows an **AI council review** card (`client/src/components/CouncilPanel.tsx`).
+Nothing is sent until the user clicks *Approve and run council*, which creates and approves a run. The card polls
+the run every second and lists each turn with its role, status, `provider · model` badge, tokens, duration and any
+fallback attempts. Cancelling is available while the run is open. When the council completes, its report replaces the rule-based one
+(the iteration comparison shows the score change) and the verdict carries an `AI council · <providers>` badge. When
+the council falls back, the card says why and the rule-based report stays. The form's hours default is 24, matching
+the server's fallback for omitted hours.

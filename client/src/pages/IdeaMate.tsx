@@ -1,4 +1,4 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useState, type FormEvent, type ReactNode } from 'react';
 import {
   AlertTriangle, ArrowRight, Check, ChevronDown, CircleHelp, Clock3, ExternalLink, Loader2,
   Search, Sparkles, WandSparkles,
@@ -6,11 +6,12 @@ import {
 import type { IdeaInput, IdeaReport } from '../../../shared/idea-report';
 import type { IdeaResearchResult } from '../../../shared/idea-research';
 import { api, ApiError } from '../api';
+import { CouncilPanel } from '../components/CouncilPanel';
 
 const initialInput: IdeaInput = {
   idea: '',
   theme: '',
-  hoursLeft: 150,
+  hoursLeft: 24,
   teamSkills: '',
   targetJudges: '',
   mode: 'quick',
@@ -110,7 +111,10 @@ function ReportView({ report, previous, research }: { report: IdeaReport; previo
       <Section title="Idea verdict" description="A structured first-pass assessment, not a substitute for talking to users.">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${verdictStyles[report.verdict]}`}>{report.verdict}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${verdictStyles[report.verdict]}`}>{report.verdict}</span>
+              <span className="rounded-full border border-line px-2.5 py-1 text-xs text-mute" data-testid="report-method">{report.analysis.council ? `AI council · ${report.analysis.council.providers.join(', ')}` : 'Rule-based'}</span>
+            </div>
             <p className="mt-3 text-sm text-mute">Overall solidity score</p>
             <p className="text-4xl font-semibold">{report.overallScore}<span className="ml-1 text-base text-mute">/100</span></p>
           </div>
@@ -193,6 +197,7 @@ function ReportView({ report, previous, research }: { report: IdeaReport; previo
       </Section>
 
       <Section title="Analysis transparency">
+        {report.analysis.council && <p className="mb-2 text-sm text-mute">Council members: {report.analysis.council.members.join(', ')} · providers: {report.analysis.council.providers.join(', ')} · {report.analysis.council.calls} AI calls.{report.analysis.council.note ? ` ${report.analysis.council.note}` : ''}</p>}
         <p className="text-sm text-mute">This first-pass score and associated simulations use a {report.analysis.method} method. Research, when requested, is shown separately with its provider status and source links. Treat assumptions as prompts to validate, not facts.</p>
         <details className="mt-3 text-sm text-mute"><summary className="inline-flex items-center gap-1">Original idea and context <ChevronDown className="h-4 w-4" aria-hidden /></summary><p className="mt-2 whitespace-pre-wrap">{report.input.idea}</p><p className="mt-1">Theme: {report.input.theme || 'Not specified'} · Team: {report.input.teamSkills || 'Not specified'} · Judges: {report.input.targetJudges || 'Not specified'}</p></details>
       </Section>
@@ -209,6 +214,10 @@ export default function IdeaMate() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState('');
+  const [submitted, setSubmitted] = useState<{ n: number; input: IdeaInput } | null>(null);
+  const showCouncilReport = useCallback((next: IdeaReport) => {
+    setReport((current) => { setPrevious(current); return next; });
+  }, []);
 
   function update<K extends keyof IdeaInput>(key: K, value: IdeaInput[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -225,6 +234,7 @@ export default function IdeaMate() {
       const next = await api.createIdeaReport(form);
       setPrevious(report);
       setReport(next);
+      setSubmitted((s) => ({ n: (s?.n ?? 0) + 1, input: form }));
       if (form.mode === 'deep') setPendingResearch(true);
       setProgress('');
     } catch (caught) {
@@ -308,6 +318,7 @@ export default function IdeaMate() {
               <div className="mt-4 flex flex-wrap gap-2"><button type="button" className="btn-primary" onClick={() => void approveResearch()} disabled={busy}><Search className="h-4 w-4" aria-hidden />Approve and start research</button><button type="button" className="btn-secondary" onClick={() => setPendingResearch(false)}>Skip research</button></div>
             </div>
           )}
+          {report && submitted && <CouncilPanel key={submitted.n} input={submitted.input} onReport={showCouncilReport} />}
           {report && <ReportView report={report} previous={previous} research={research} />}
         </div>
       </div>

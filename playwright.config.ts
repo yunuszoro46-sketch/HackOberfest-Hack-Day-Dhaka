@@ -23,6 +23,11 @@ export default defineConfig({
     env: {
       PORT: String(PORT),
       AGENT_PROVIDER: 'mock',
+      // Keep the IdeaMate council deterministic: no LLM provider is configured in E2E even if the shell has keys.
+      GROQ_API_KEY: '',
+      GEMINI_API_KEY: '',
+      GEMMA_API_KEY: '',
+      OPENROUTER_API_KEY: '',
       TEAMMATE_DB: path.join(tmp, 'e2e.db'),
       TEAMMATE_WORKSPACE: path.join(tmp, 'ws'),
     },

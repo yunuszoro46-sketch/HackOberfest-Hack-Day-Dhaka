@@ -4,6 +4,7 @@ import type {
 } from '../../shared/types';
 import type { IdeaInput, IdeaReport } from '../../shared/idea-report';
 import type { IdeaResearchResult } from '../../shared/idea-research';
+import type { IdeaRun, IdeaRunDetail } from '../../shared/idea-run';
 
 export class ApiError extends Error {
   code: string;
@@ -59,4 +60,8 @@ export const api = {
   createIdeaReport: (input: IdeaInput) => req<IdeaReport>('POST', '/api/ideas/report', input),
   researchIdea: (input: IdeaInput) =>
     req<IdeaResearchResult>('POST', '/api/ideas/research', { ...input, confirmed: true }),
+  createIdeaRun: (input: IdeaInput) => req<IdeaRunDetail>('POST', '/api/ideas/runs', input),
+  approveIdeaRun: (id: string) => req<IdeaRun>('POST', `/api/ideas/runs/${id}/approve`),
+  cancelIdeaRun: (id: string) => req<IdeaRun>('POST', `/api/ideas/runs/${id}/cancel`),
+  ideaRun: (id: string) => req<IdeaRunDetail>('GET', `/api/ideas/runs/${id}`),
 };
