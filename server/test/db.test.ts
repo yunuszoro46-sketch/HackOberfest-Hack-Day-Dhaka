@@ -8,7 +8,7 @@ describe('db', () => {
   it('migrations apply once; second open is a no-op; rows survive reopen', () => {
     const file = path.join(tmpDir(), 'a.db');
     const first = openDb(file);
-    expect(first.applied).toEqual(['001_init', '002_runs_decisions_handoff']);
+    expect(first.applied).toEqual(['001_init', '002_runs_decisions_handoff', '003_idea_runs']);
     const p = new Repo(first.db).createProject({ name: 'X', goal: 'g', constraints: '' });
     first.db.close();
 

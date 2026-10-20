@@ -141,4 +141,39 @@ ALTER TABLE messages ADD COLUMN to_role TEXT;
 ALTER TABLE messages ADD COLUMN provider TEXT;
 `,
   },
+  {
+    // Idea council runs (approval-gated) and their ordered turn transcript. Additive only.
+    name: '003_idea_runs',
+    sql: `
+CREATE TABLE idea_runs (
+  id TEXT PRIMARY KEY,
+  status TEXT NOT NULL,
+  input TEXT NOT NULL,
+  max_calls INTEGER NOT NULL,
+  report TEXT,
+  fallback TEXT,
+  error TEXT,
+  created_at TEXT NOT NULL,
+  started_at TEXT,
+  finished_at TEXT
+);
+CREATE INDEX idx_idea_runs_created ON idea_runs(created_at);
+CREATE TABLE idea_run_turns (
+  run_id TEXT NOT NULL REFERENCES idea_runs(id) ON DELETE CASCADE,
+  seq INTEGER NOT NULL,
+  round TEXT NOT NULL,
+  role TEXT NOT NULL,
+  status TEXT NOT NULL,
+  provider TEXT,
+  model TEXT,
+  reason TEXT,
+  attempts TEXT NOT NULL DEFAULT '[]',
+  output TEXT,
+  usage TEXT,
+  started_at TEXT NOT NULL,
+  duration_ms INTEGER NOT NULL,
+  PRIMARY KEY (run_id, seq)
+);
+`,
+  },
 ];

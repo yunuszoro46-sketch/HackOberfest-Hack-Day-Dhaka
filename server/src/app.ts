@@ -12,6 +12,9 @@ import { ApiErr, notFound } from './http/errors';
 import { createProviders, type Providers } from './providers';
 import { createIdeaResearchService, type IdeaResearchService } from './research/idea-research';
 import { createLlm, describeLlm, type LlmSetup } from './llm/registry';
+import { IdeaRunRepo } from './db/idea-runs';
+import { CouncilService } from './council/service';
+import { DEFAULT_COUNCIL_CALLS } from './council/runner';
 
 export interface AppOptions {
   dbFile?: string;
@@ -53,6 +56,9 @@ const IdeaBody = z.object({
   targetJudges: z.string().trim().max(200).optional().nullable(),
   mode: z.enum(['quick', 'deep']).default('quick'),
 });
+const IdeaRunBody = IdeaBody.extend({
+  maxCalls: z.number().int().min(2).max(20).default(DEFAULT_COUNCIL_CALLS),
+});
 const IdeaResearchBody = IdeaBody.extend({
   confirmed: z.literal(true, { message: 'Confirm before starting external research' }),
 });
@@ -79,6 +85,8 @@ export function createApp(opts: AppOptions = {}) {
   const llm = opts.llm ?? createLlm();
   const orch = new Orchestrator(repo, providers, workspaceRoot, { runTimeoutMs: opts.runTimeoutMs });
   const recovered = orch.boot();
+  const council = new CouncilService(new IdeaRunRepo(db), llm.chain);
+  const recoveredIdeaRuns = council.boot();
 
   const app = express();
   app.disable('x-powered-by');
@@ -109,6 +117,18 @@ export function createApp(opts: AppOptions = {}) {
   });
 
   app.get('/api/llm/status', (_req, res) => { res.json(describeLlm(llm)); });
+
+  // Idea council runs: created awaiting approval; no LLM call happens until approve.
+  app.get('/api/ideas/runs', (req, res) => {
+    res.json(council.list(Math.min(Math.max(Number(req.query.limit) || 20, 1), 100)));
+  });
+  app.post('/api/ideas/runs', (req, res) => {
+    const { maxCalls, ...input } = parse(IdeaRunBody, req.body);
+    res.status(201).json(council.detail(council.create(input, maxCalls).id));
+  });
+  app.get('/api/ideas/runs/:id', (req, res) => { res.json(council.detail(req.params.id)); });
+  app.post('/api/ideas/runs/:id/approve', (req, res) => { res.json(council.approve(req.params.id)); });
+  app.post('/api/ideas/runs/:id/cancel', (req, res) => { res.json(council.cancel(req.params.id)); });
 
   app.get('/api/roles', (_req, res) => { res.json(ROLE_LIST); });
 
@@ -226,5 +246,5 @@ export function createApp(opts: AppOptions = {}) {
     res.status(500).json({ error: { code: 'INTERNAL', message: 'Internal server error' } });
   });
 
-  return { app, repo, orch, db: db as DB, recovered, providers, llm };
+  return { app, repo, orch, db: db as DB, recovered, providers, llm, council, recoveredIdeaRuns };
 }
