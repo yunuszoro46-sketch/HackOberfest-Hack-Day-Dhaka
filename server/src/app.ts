@@ -11,6 +11,7 @@ import { Repo } from './db/repo';
 import { ApiErr, notFound } from './http/errors';
 import { createProviders, type Providers } from './providers';
 import { createIdeaResearchService, type IdeaResearchService } from './research/idea-research';
+import { createLlm, describeLlm, type LlmSetup } from './llm/registry';
 
 export interface AppOptions {
   dbFile?: string;
@@ -19,6 +20,7 @@ export interface AppOptions {
   serveClient?: boolean;
   runTimeoutMs?: number;
   researchService?: IdeaResearchService;
+  llm?: LlmSetup;
 }
 
 const ProjectBody = z.object({
@@ -74,6 +76,7 @@ export function createApp(opts: AppOptions = {}) {
   const workspaceRoot = opts.workspaceRoot ?? process.env.TEAMMATE_WORKSPACE ?? path.join(SERVER_ROOT, 'workspace');
   const providers = opts.providers ?? createProviders();
   const researchService = opts.researchService ?? createIdeaResearchService();
+  const llm = opts.llm ?? createLlm();
   const orch = new Orchestrator(repo, providers, workspaceRoot, { runTimeoutMs: opts.runTimeoutMs });
   const recovered = orch.boot();
 
@@ -104,6 +107,8 @@ export function createApp(opts: AppOptions = {}) {
     const { confirmed: _confirmed, ...input } = body;
     res.status(200).json(await researchService.research(input));
   });
+
+  app.get('/api/llm/status', (_req, res) => { res.json(describeLlm(llm)); });
 
   app.get('/api/roles', (_req, res) => { res.json(ROLE_LIST); });
 
@@ -221,5 +226,5 @@ export function createApp(opts: AppOptions = {}) {
     res.status(500).json({ error: { code: 'INTERNAL', message: 'Internal server error' } });
   });
 
-  return { app, repo, orch, db: db as DB, recovered, providers };
+  return { app, repo, orch, db: db as DB, recovered, providers, llm };
 }

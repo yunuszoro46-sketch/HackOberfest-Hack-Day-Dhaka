@@ -169,6 +169,15 @@ To enable Gemma:
 
 **Never commit API keys or expose them in frontend code.** If the provider is unavailable, the planner may fall back to rule-based planning.
 
+## Optional LLM Providers
+
+A provider layer for upcoming model-backed features lives in `server/src/llm/`. It is idle unless keys are set and does not change the default mock behaviour.
+
+- Supported: Groq, Google AI Studio (Gemini), OpenRouter free models, and a local Ollama server.
+- Providers are tried in `LLM_PROVIDERS` order; a provider that is rate limited, over its request budget, or failing is skipped.
+- Every reply must be JSON that matches a zod schema.
+- Variable names and free-tier defaults are in `.env.example`. `GET /api/llm/status` shows which providers are configured and their usage (never keys).
+
 ## Project Structure
 
 ```text
