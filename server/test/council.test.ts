@@ -44,6 +44,13 @@ const draft = (role: 'feasibility' | 'market' | 'judge', score: number) => ({
 const critique = { objections: [{ target: 'market', point: 'Originality is overstated.', severity: 'medium' }], missingRisks: ['Parking data access'] };
 const synthesis = {
   summary: 'Build it, narrowly.',
+  ideaCard: {
+    problem: 'Commuters cannot reliably find affordable parking.',
+    targetUser: 'Dhaka commuters who drive to busy areas.',
+    solution: 'A mobile app showing verified parking availability and prices.',
+    whyNow: 'A short pilot can validate supply and demand during the hackathon.',
+    hackathonConstraints: 'Focus on one Dhaka district and seeded availability data.',
+  },
   scores: IDEA_CRITERIA.map((criterion) => ({ criterion, score: 80, rationale: `chair on ${criterion}` })),
   verdict: 'Build',
   topRisks: ['No live parking data feed', 'Crowded market'],
@@ -70,6 +77,7 @@ describe('idea council', () => {
     expect(out.turns).toEqual([]);
     expect(out.report.analysis.method).toBe('rule-based');
     expect(out.report.criteria).toEqual(scoreIdea(INPUT).criteria);
+    expect(out.report.ideaCard).toEqual(scoreIdea(INPUT).ideaCard);
   });
 
   it('runs drafts → critique → synthesis in order and maps the chair result onto the report', async () => {
@@ -89,14 +97,13 @@ describe('idea council', () => {
     expect(r.topRisks).toEqual(synthesis.topRisks);
     expect(r.upgradeSuggestions.mustFix.map((s) => s.title)).toEqual(['Seed data for one district']);
     expect(r.upgradeSuggestions.wowFactor.map((s) => s.title)).toEqual(['Voice alerts']);
+    expect(r.ideaCard).toEqual(synthesis.ideaCard);
     // No council niceToHave items, so the rule-based ones stay.
     expect(r.upgradeSuggestions.niceToHave).toEqual(scoreIdea(INPUT).upgradeSuggestions.niceToHave);
     expect(r.judgeQuestions[0].question).toBe('Where does availability data come from?');
     expect(r.judgeQuestions).toHaveLength(scoreIdea(INPUT).judgeQuestions.length);
     expect(r.analysis).toMatchObject({ method: 'council', council: { members: ['feasibility', 'market', 'judge', 'critic', 'chair'], providers: ['groq'], calls: 5 } });
     expect(r.analysis.council?.note).toBeUndefined();
-    // Rule-based sections are kept.
-    expect(r.ideaCard).toEqual(scoreIdea(INPUT).ideaCard);
 
     // Drafts drop off-focus scores before they are recorded or reach the critic and chair.
     const feasibility = out.turns[0].output as { scores: { criterion: string }[] };
@@ -155,6 +162,7 @@ describe('idea council', () => {
     expect(score('themeFit').score).toBe(90); // judge only; the off-focus 1s were dropped
     expect(out.report.topRisks).toEqual(['feasibility risk', 'market risk', 'judge risk', 'Parking data access']);
     expect(out.report.upgradeSuggestions.mustFix.map((s) => s.title)).toEqual(['feasibility fix', 'market fix', 'judge fix']);
+    expect(out.report.ideaCard).toEqual(scoreIdea(INPUT).ideaCard);
     expect(out.report.analysis.council?.note).toContain('averaged');
   });
 

@@ -49,6 +49,13 @@ const suggestion = obj({
   group: enm(['mustFix', 'niceToHave', 'wowFactor'] as const),
 });
 const judgeQuestion = obj({ question: str(200), suggestedAnswer: str(300) });
+const ideaCard = obj({
+  problem: str(300),
+  targetUser: str(200),
+  solution: str(300),
+  whyNow: str(300),
+  hackathonConstraints: str(300),
+});
 
 export const MEMBER_ROLE_IDS = ['feasibility', 'market', 'judge'] as const;
 export type MemberRoleId = (typeof MEMBER_ROLE_IDS)[number];
@@ -69,6 +76,7 @@ export const CritiqueSchema = obj({
 
 export const SynthesisSchema = obj({
   summary: str(500),
+  ideaCard,
   scores: arr(score, IDEA_CRITERIA.length),
   verdict: enm(IDEA_VERDICTS),
   topRisks: arr(str(200), 5),

@@ -69,10 +69,10 @@ export interface CouncilOptions {
 
 export const DEFAULT_COUNCIL_CALLS = 5;
 
-const MAX_TOKENS: Record<CouncilRound, number> = { draft: 900, critique: 600, synthesis: 1500 };
+const MAX_TOKENS: Record<CouncilRound, number> = { draft: 900, critique: 600, synthesis: 1800 };
 
 const COUNCIL_LIMITATION =
-  'Scores, risks and recommendations come from an AI council (several LLMs drafting, critiquing and synthesising); the idea card, simulations and system design are rule-based. All of it is hypotheses, not user research or validated market evidence.';
+  'The idea card, scores, risks and recommendations come from an AI council when chair synthesis succeeds; otherwise the card remains rule-based and scores use member averages when available or the rule-based baseline. Simulations and system design are rule-based. All of it is hypotheses, not user research or validated market evidence.';
 
 function ideaBrief(input: IdeaInput): string {
   const lines = [
@@ -177,7 +177,7 @@ export async function runCouncil(llm: JsonGenerator, input: IdeaInput, opts: Cou
   run.limit = maxCalls;
   const baseline = JSON.stringify(Object.fromEntries(base.criteria.map((c) => [c.criterion, c.score])));
   const synthesis = await turn(
-    'synthesis', 'chair', SynthesisSchema, systemFor('chair', ` Score every criterion: ${IDEA_CRITERIA.join(', ')}.`),
+    'synthesis', 'chair', SynthesisSchema, systemFor('chair', ` Create a concise Idea Card and score every criterion: ${IDEA_CRITERIA.join(', ')}.`),
     `${brief}\n\nMember drafts (JSON, keyed by role):\n${draftsJson}\n\nCritique (JSON):\n${critique ? JSON.stringify(critique) : 'none'}\n\nKeyword-heuristic baseline scores (weak evidence, for reference only):\n${baseline}`,
   );
 
@@ -246,6 +246,7 @@ export function mergeReport(
   const answered = turns.filter((t) => t.status === 'ok');
   return {
     ...base,
+    ideaCard: synthesis?.ideaCard ?? base.ideaCard,
     criteria,
     overallScore,
     verdict: verdictFor(overallScore),

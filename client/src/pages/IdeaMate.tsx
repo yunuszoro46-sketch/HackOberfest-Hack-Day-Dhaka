@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import type { IdeaInput, IdeaReport } from '../../../shared/idea-report';
 import type { IdeaResearchResult } from '../../../shared/idea-research';
+import type { IdeaRunDetail } from '../../../shared/idea-run';
 import { api, ApiError } from '../api';
 
 const initialInput: IdeaInput = {
@@ -88,7 +89,19 @@ function ResearchPanel({ result }: { result: IdeaResearchResult }) {
   );
 }
 
-function ReportView({ report, previous, research }: { report: IdeaReport; previous: IdeaReport | null; research: IdeaResearchResult | null }) {
+function ReportView({ report, previous, research, run }: { report: IdeaReport; previous: IdeaReport | null; research: IdeaResearchResult | null; run: IdeaRunDetail | null }) {
+  const chairTurn = run?.turns.find((turn) => turn.round === 'synthesis' && turn.status === 'ok');
+  const successfulTurns = run?.turns.filter((turn) => turn.status === 'ok') ?? [];
+  const councilProviders = [...new Set(successfulTurns.map((turn) => `${turn.provider} · ${turn.model}`))];
+  const soliditySource = report.analysis.method === 'council'
+    ? chairTurn
+      ? `${chairTurn.provider} · ${chairTurn.model}`
+      : `Council fallback${councilProviders.length ? ` · ${councilProviders.join(', ')}` : ''}`
+    : 'Rule-based template';
+  const ideaCardSource = report.analysis.method === 'council' && chairTurn
+    ? `${chairTurn.provider} · ${chairTurn.model}`
+    : 'Rule-based fallback';
+
   return (
     <div className="grid gap-5">
       {previous && (
@@ -107,7 +120,7 @@ function ReportView({ report, previous, research }: { report: IdeaReport; previo
         </Section>
       )}
 
-      <Section title="Idea verdict" description="A structured first-pass assessment, not a substitute for talking to users.">
+      <Section title="Idea verdict" description={`A structured first-pass assessment, not a substitute for talking to users. Solidity source: ${soliditySource}.`}>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-semibold ${verdictStyles[report.verdict]}`}>{report.verdict}</span>
@@ -130,7 +143,7 @@ function ReportView({ report, previous, research }: { report: IdeaReport; previo
         </div>
       </Section>
 
-      <Section title="Idea card">
+      <Section title="Idea card" description={`Cleaned-up idea summary. Source: ${ideaCardSource}.`}>
         <dl className="grid gap-4 sm:grid-cols-2">
           {Object.entries(report.ideaCard).map(([key, value]) => (
             <div key={key}><dt className="text-xs font-medium uppercase tracking-wide text-mute">{key.replace(/[A-Z]/g, (letter) => ` ${letter}`).replace(/^./, (letter) => letter.toUpperCase())}</dt><dd className="mt-1 text-sm">{value}</dd></div>
@@ -205,6 +218,9 @@ export default function IdeaMate() {
   const [report, setReport] = useState<IdeaReport | null>(null);
   const [previous, setPrevious] = useState<IdeaReport | null>(null);
   const [research, setResearch] = useState<IdeaResearchResult | null>(null);
+  const [run, setRun] = useState<IdeaRunDetail | null>(null);
+  const [reportRun, setReportRun] = useState<IdeaRunDetail | null>(null);
+  const [pendingCouncil, setPendingCouncil] = useState(false);
   const [pendingResearch, setPendingResearch] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -220,18 +236,99 @@ export default function IdeaMate() {
     setError(null);
     setResearch(null);
     setPendingResearch(false);
-    setProgress('Building your structured report…');
+    setRun(null);
+    setProgress('Preparing the report run and checking available providers…');
     try {
-      const next = await api.createIdeaReport(form);
-      setPrevious(report);
-      setReport(next);
-      if (form.mode === 'deep') setPendingResearch(true);
+      const maxCalls = form.mode === 'quick' ? 4 : 5;
+      const next = await api.createIdeaRun(form, maxCalls);
+      setRun(next);
+      setPendingCouncil(true);
       setProgress('');
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : 'Unable to create the report. Please try again.');
+      setError(caught instanceof ApiError ? caught.message : 'Unable to prepare the report run. Please try again.');
       setProgress('');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function approveCouncil() {
+    if (!run) return;
+    setPendingCouncil(false);
+    setBusy(true);
+    setError(null);
+    setProgress('Starting the approved council run…');
+    try {
+      await api.approveIdeaRun(run.id);
+      let latest = await api.ideaRun(run.id);
+      setRun(latest);
+      for (let attempt = 0; attempt < 240; attempt += 1) {
+        if (latest.status === 'COMPLETED') {
+          if (!latest.report) throw new Error('The completed run did not include a report.');
+          setPrevious(report);
+          setReport(latest.report);
+          setReportRun(latest);
+          setPendingResearch(latest.input.mode === 'deep');
+          setProgress('');
+          return;
+        }
+        if (latest.status === 'FAILED') throw new Error(latest.error || 'The report run failed.');
+        if (latest.status === 'CANCELLED') {
+          setProgress('');
+          return;
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 750));
+        latest = await api.ideaRun(run.id);
+        setRun(latest);
+        setProgress(`Council in progress: ${latest.turns.filter((turn) => turn.status !== 'skipped').length} of up to ${latest.maxCalls} calls recorded…`);
+      }
+      throw new Error('The report run is taking too long. Check its status and try again.');
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : caught instanceof Error ? caught.message : 'Unable to complete the report. Please try again.');
+      setProgress('');
+      setPendingCouncil(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancelCouncil() {
+    if (!run) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api.cancelIdeaRun(run.id);
+      setRun(await api.ideaRun(run.id));
+      setPendingCouncil(false);
+      setProgress('');
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Unable to cancel the report run.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function useTemplateReport() {
+    setPendingCouncil(false);
+    setBusy(true);
+    setError(null);
+    setProgress('Building a clearly labeled rule-based report…');
+    try {
+      if (run && (run.status === 'AWAITING_APPROVAL' || run.status === 'RUNNING')) {
+        await api.cancelIdeaRun(run.id);
+      }
+      const input = run?.input ?? form;
+      const next = await api.createIdeaReport(input);
+      setPrevious(report);
+      setReport(next);
+      setRun(null);
+      setReportRun(null);
+      if (input.mode === 'deep') setPendingResearch(true);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'Unable to create the template report. Please try again.');
+    } finally {
+      setBusy(false);
+      setProgress('');
     }
   }
 
@@ -241,7 +338,7 @@ export default function IdeaMate() {
     setError(null);
     setProgress('Searching official sources and checking their links. Fetched content is treated as untrusted data.');
     try {
-      const result = await api.researchIdea(form);
+      const result = await api.researchIdea(report?.input ?? form);
       setResearch(result);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'Research could not be completed. Your report is still available.');
@@ -291,11 +388,37 @@ export default function IdeaMate() {
 
           {form.mode === 'deep' && <p className="flex gap-2 rounded-md border border-amber-400/30 bg-amber-400/5 p-3 text-xs text-amber-100"><CircleHelp className="h-4 w-4 shrink-0" aria-hidden />External research will not start automatically. You will review and approve it after seeing the initial report.</p>}
           {error && <p role="alert" className="rounded-md border border-rose-400/30 bg-rose-400/5 p-3 text-sm text-rose-100"><AlertTriangle className="mr-2 inline h-4 w-4" aria-hidden />{error}</p>}
-          <button className="btn-primary w-full" type="submit" disabled={busy || !form.idea.trim()}>{busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}{report ? 'Re-run with this idea' : 'Generate Idea Report'} <ArrowRight className="h-4 w-4" aria-hidden /></button>
+          <button className="btn-primary w-full" type="submit" disabled={busy || pendingCouncil || !form.idea.trim()}>{busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}{report ? 'Re-run with this idea' : 'Generate Idea Report'} <ArrowRight className="h-4 w-4" aria-hidden /></button>
           {progress && <p role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-mute"><Loader2 className="h-4 w-4 animate-spin" aria-hidden />{progress}</p>}
         </form>
 
         <div className="grid gap-5">
+          {pendingCouncil && run && (
+            <div className="card border-amber-400/30 p-5">
+              <h2 className="font-semibold">Approve AI council run?</h2>
+              <p className="mt-2 text-sm text-mute">
+                {run.providers.length
+                  ? `${run.input.mode === 'quick' ? 'Quick' : 'Deep'} mode may make up to ${run.maxCalls} model calls, including provider fallbacks.`
+                  : 'No model providers are configured. If you continue, the run will produce a clearly labeled rule-based report with no model calls.'}
+              </p>
+              {run.providers.length > 0 && <p className="mt-2 text-xs text-mute">Configured providers: {run.providers.join(', ')}</p>}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="button" className="btn-primary" onClick={() => void approveCouncil()} disabled={busy}>Approve and run</button>
+                <button type="button" className="btn-secondary" onClick={() => void useTemplateReport()} disabled={busy}>Use template report</button>
+                <button type="button" className="btn-secondary" onClick={() => void cancelCouncil()} disabled={busy}>Cancel</button>
+              </div>
+            </div>
+          )}
+          {busy && !pendingCouncil && run?.status === 'RUNNING' && (
+            <div className="card border-accent/30 p-5" role="status" aria-live="polite">
+              <div className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin text-accent-ink" aria-hidden /><h2 className="font-semibold">Council working</h2></div>
+              <p className="mt-2 text-sm text-mute">{progress || 'Generating report sections…'}</p>
+              <ol className="mt-4 grid gap-2 sm:grid-cols-2">
+                {run.turns.map((turn) => <li key={turn.seq} className="rounded-md border border-line-soft p-3 text-xs"><strong className="capitalize">{turn.round}: {turn.role}</strong><span className="ml-2 capitalize text-mute">{turn.status}</span>{turn.provider && <p className="mt-1 text-mute">{turn.provider} · {turn.model}</p>}{turn.reason && <p className="mt-1 text-amber-100">{turn.reason}</p>}</li>)}
+              </ol>
+              <button type="button" className="btn-secondary mt-4" onClick={() => void cancelCouncil()}>Cancel run</button>
+            </div>
+          )}
           {!report && (
             <div className="card grid min-h-64 place-items-center p-8 text-center">
               <div><div className="mx-auto grid h-12 w-12 place-items-center rounded-xl border border-line bg-surface-2"><Search className="h-5 w-5 text-accent-ink" aria-hidden /></div><h2 className="mt-4 text-lg font-semibold">Your report will appear here</h2><p className="mx-auto mt-2 max-w-md text-sm text-mute">Get a score with evidence labels, user and judge simulations, a system design recommendation, and a practical build direction.</p><p className="mt-4 inline-flex items-center gap-1 text-xs text-mute"><Clock3 className="h-3.5 w-3.5" aria-hidden />Start with Quick mode; Deep research can be approved afterward.</p></div>
@@ -308,7 +431,7 @@ export default function IdeaMate() {
               <div className="mt-4 flex flex-wrap gap-2"><button type="button" className="btn-primary" onClick={() => void approveResearch()} disabled={busy}><Search className="h-4 w-4" aria-hidden />Approve and start research</button><button type="button" className="btn-secondary" onClick={() => setPendingResearch(false)}>Skip research</button></div>
             </div>
           )}
-          {report && <ReportView report={report} previous={previous} research={research} />}
+          {report && <ReportView report={report} previous={previous} research={research} run={reportRun} />}
         </div>
       </div>
     </div>

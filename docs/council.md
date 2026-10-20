@@ -51,8 +51,10 @@ OpenRouter for the critic, Gemini for the chair. The chain falls back to other p
 
 The council replaces `criteria` (evidence label `Inferred`), `overallScore`, `verdict` (same thresholds as
 `scoreIdea`), `topRisks`, `upgradeSuggestions` (any empty group keeps its rule-based items) and `judgeQuestions`.
-The idea card, simulations, time-crunch plan, system design and UI/UX direction stay rule-based.
+The chair also generates the Idea Card during synthesis; if chair synthesis fails, the rule-based Idea Card remains.
+Simulations, time-crunch plan, system design and UI/UX direction stay rule-based.
 `analysis.method` is `'council'`, and `analysis.council` lists the members, providers and call count.
+The IdeaMate page attributes the Idea Card and Solidity check to the successful chair provider/model when available. If the report uses the rule-based fallback, it is labeled as such; if chair synthesis fails but member drafts succeed, the page labels that council fallback and lists the successful providers/models.
 
 ## Schemas
 
@@ -77,3 +79,10 @@ Each turn is written as it finishes, so a client can poll the transcript while t
 `COMPLETED` with a report (council or rule-based fallback, see `fallback`), `CANCELLED`, or `FAILED`. Runs left
 `RUNNING` by a restart are marked `FAILED` on boot. With no provider keys, an approved run completes immediately
 with the rule-based report and `fallback: 'NOT_CONFIGURED'`, so mock mode and E2E stay deterministic.
+
+The IdeaMate page creates a run before asking for approval, so the user can see configured providers and the
+call budget before any model request. Quick mode sets `maxCalls` to 4 (three specialist drafts and the chair;
+critique is skipped); Deep mode sets it to 5 (drafts, critique and chair). During execution the page polls the
+persisted run and displays turn status plus provider/model attribution. Deep web research remains a separate,
+explicit approval after the report is complete. Users may choose a rule-based template report instead of starting
+the council.

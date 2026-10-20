@@ -12,7 +12,21 @@ const question = { question: 'Where does the data come from?', suggestedAnswer: 
 const REPLIES: Record<string, unknown> = {
   draft: { summary: 's', scores, risks: ['No data feed'], suggestions: [suggestion], judgeQuestions: [question], verdict: 'Build' },
   critique: { objections: [], missingRisks: [] },
-  synthesis: { summary: 's', scores, verdict: 'Build', topRisks: ['No data feed'], suggestions: [suggestion], judgeQuestions: [question] },
+  synthesis: {
+    summary: 's',
+    ideaCard: {
+      problem: 'Commuters need reliable parking availability.',
+      targetUser: 'Drivers in Dhaka.',
+      solution: 'A parking availability app.',
+      whyNow: 'A focused pilot can be tested quickly.',
+      hackathonConstraints: 'Start with one district and seeded data.',
+    },
+    scores,
+    verdict: 'Build',
+    topRisks: ['No data feed'],
+    suggestions: [suggestion],
+    judgeQuestions: [question],
+  },
 };
 
 /** Answers every council turn; when `gate` is set, each call waits for it (or for the abort). */

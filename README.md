@@ -26,6 +26,7 @@ Traditional chat-based AI tools are useful for individual questions, but they do
 ## What You Can Do
 
 - **Create projects:** Define a project goal and constraints.
+- **Assess hackathon ideas:** Use IdeaMate's Quick or Deep report, review the model-call estimate, and approve council runs before they start. Rule-based fallback output is labeled; Deep web research needs separate approval.
 - **Build a specialized team:** Choose from six roles—Frontend Engineer, Backend Engineer, AI/ML Engineer, QA Engineer, Researcher, and Documentation Writer.
 - **Plan with natural language:** Turn a command into an ordered set of tasks.
 - **Approve before execution:** Review a proposed plan before any task starts.
@@ -171,14 +172,15 @@ To enable Gemma:
 
 ## Optional LLM Providers
 
-A provider layer for upcoming model-backed features lives in `server/src/llm/`. It is idle unless keys are set and does not change the default mock behaviour.
+A provider layer for IdeaMate's optional model-backed report runs lives in `server/src/llm/`. It does not change TeamMate's default mock behaviour.
 
 - Supported: Groq, Google AI Studio (Gemini), OpenRouter free models, and a local Ollama server.
 - Providers are tried in `LLM_PROVIDERS` order; a provider that is rate limited, over its request budget, or failing is skipped.
 - Every reply must be JSON that matches a zod schema.
 - Variable names and free-tier defaults are in `.env.example`. `GET /api/llm/status` shows which providers are configured and their usage (never keys).
 - The idea council (`server/src/council/`) drafts, critiques and synthesises an idea assessment across these providers, falling back to the rule-based report. Design and degradation rules: [docs/council.md](docs/council.md).
-- Council runs are approval-gated and stored: `POST /api/ideas/runs` creates one, `POST /api/ideas/runs/:id/approve` starts it, `GET /api/ideas/runs/:id` returns its status and turn-by-turn transcript.
+- IdeaMate Quick mode uses a budget of up to four council calls; Deep uses up to five. The page displays the configured providers and estimated call budget before approval, then shows progress and provider/model details as turns complete.
+- Council runs are approval-gated and stored: `POST /api/ideas/runs` creates one, `POST /api/ideas/runs/:id/approve` starts it, `GET /api/ideas/runs/:id` returns its status and turn-by-turn transcript. The chair generates the Idea Card and Solidity check when synthesis succeeds; simulations, system design and UI/UX remain rule-based.
 
 ## Project Structure
 

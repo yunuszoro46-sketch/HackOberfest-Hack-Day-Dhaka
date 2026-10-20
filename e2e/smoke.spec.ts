@@ -1,7 +1,86 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import type { IdeaInput, IdeaReport } from '../shared/idea-report';
+import type { IdeaRunDetail } from '../shared/idea-run';
 
 const DEMO = 'Build a room availability interface, implement booking validation, test edge cases, and document the result.';
 const shots = process.env.SCREENSHOTS_DIR;
+
+async function mockIdeaRuns(page: Page) {
+  let run: IdeaRunDetail | null = null;
+  let report: IdeaReport | null = null;
+
+  await page.route('**/api/ideas/runs**', async (route) => {
+    const request = route.request();
+    const method = request.method();
+    const url = new URL(request.url());
+    if (method === 'POST' && url.pathname === '/api/ideas/runs') {
+      const input = request.postDataJSON() as IdeaInput & { maxCalls: number };
+      const response = await route.fetch({
+        url: new URL('/api/ideas/report', request.url()).toString(),
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        postData: JSON.stringify(input),
+      });
+      report = await response.json() as IdeaReport;
+      report.ideaCard = {
+        problem: 'Commuters struggle to find affordable parking.',
+        targetUser: 'Drivers in Dhaka.',
+        solution: 'An app with verified parking availability.',
+        whyNow: 'A one-district pilot is feasible in the hackathon window.',
+        hackathonConstraints: 'Use seeded availability data for the demo.',
+      };
+      report.analysis = {
+        method: 'council',
+        limitation: 'Mocked council result for browser testing.',
+        council: { members: ['chair'], providers: ['mock-provider'], calls: input.maxCalls },
+      };
+      run = {
+        id: 'mock-idea-run',
+        status: 'AWAITING_APPROVAL',
+        input,
+        maxCalls: input.maxCalls,
+        report: null,
+        fallback: null,
+        error: null,
+        createdAt: new Date().toISOString(),
+        startedAt: null,
+        finishedAt: null,
+        turns: [],
+        providers: ['mock-provider'],
+      };
+      await route.fulfill({ status: 201, json: run });
+      return;
+    }
+
+    if (!run) {
+      await route.fulfill({ status: 404, json: { error: { code: 'NOT_FOUND', message: 'Run not found' } } });
+      return;
+    }
+
+    if (method === 'POST' && url.pathname.endsWith('/approve')) {
+      run.status = 'RUNNING';
+      await route.fulfill({ status: 200, json: run });
+      return;
+    }
+    if (method === 'POST' && url.pathname.endsWith('/cancel')) {
+      run.status = 'CANCELLED';
+      await route.fulfill({ status: 200, json: run });
+      return;
+    }
+
+    if (method === 'GET' && url.pathname.endsWith(run.id)) {
+      run.status = 'COMPLETED';
+      run.report = report;
+      run.startedAt = new Date().toISOString();
+      run.finishedAt = new Date().toISOString();
+      run.turns = [{ seq: 1, round: 'synthesis', role: 'chair', status: 'ok', provider: 'mock-provider', model: 'mock-model', reason: null, attempts: [], output: null, usage: null, startedAt: new Date().toISOString(), durationMs: 1 }];
+      await route.fulfill({ status: 200, json: run });
+      return;
+    }
+
+    await route.fulfill({ status: 404, json: { error: { code: 'NOT_FOUND', message: 'Run not found' } } });
+  });
+}
 
 test('landing → create → team → command → QA report says PASS', async ({ page }) => {
   await page.goto('/');
@@ -38,10 +117,14 @@ test('landing → create → team → command → QA report says PASS', async ({
 });
 
 test('IdeaMate generates a report and compares an edited rerun', async ({ page }) => {
+  await mockIdeaRuns(page);
   await page.goto('/ideas');
   await expect(page.getByRole('heading', { name: 'IdeaMate' })).toBeVisible();
   await page.getByLabel('Your idea').fill('A mobile app for Dhaka commuters to find safe parking with live availability alerts.');
   await page.getByRole('button', { name: 'Generate Idea Report' }).click();
+  await expect(page.getByRole('heading', { name: 'Approve AI council run?' })).toBeVisible();
+  await expect(page.getByText(/up to 4 model calls/)).toBeVisible();
+  await page.getByRole('button', { name: 'Approve and run' }).click();
   await expect(page.getByRole('heading', { name: 'Idea verdict' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'System design recommendation' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'UI/UX direction' })).toBeVisible();
@@ -49,11 +132,13 @@ test('IdeaMate generates a report and compares an edited rerun', async ({ page }
 
   await page.getByLabel('Your idea').fill('A mobile app for Dhaka commuters to find safe parking with live availability alerts, route suggestions, and verified community reports.');
   await page.getByRole('button', { name: 'Re-run with this idea' }).click();
+  await page.getByRole('button', { name: 'Approve and run' }).click();
   await expect(page.getByRole('heading', { name: 'Iteration comparison' })).toBeVisible();
   await expect(page.getByText('Current', { exact: true })).toBeVisible();
 });
 
 test('IdeaMate Deep mode gates research behind approval and fits mobile width', async ({ page }) => {
+  await mockIdeaRuns(page);
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto('/ideas');
   await page.getByLabel('Your idea').fill('A study room finder for university students with live availability.');
@@ -78,6 +163,9 @@ test('IdeaMate Deep mode gates research behind approval and fits mobile width', 
     });
   });
   await page.getByRole('button', { name: 'Generate Idea Report' }).click();
+  await expect(page.getByRole('heading', { name: 'Approve AI council run?' })).toBeVisible();
+  await expect(page.getByText(/up to 5 model calls/)).toBeVisible();
+  await page.getByRole('button', { name: 'Approve and run' }).click();
   await expect(page.getByRole('heading', { name: 'Approve reference research?' })).toBeVisible();
   expect(researchRequested).toBe(false);
   await page.getByRole('button', { name: 'Approve and start research' }).click();
