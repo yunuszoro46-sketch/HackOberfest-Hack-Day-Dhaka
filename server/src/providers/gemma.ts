@@ -11,6 +11,9 @@ import { ROLES } from '../agents/roles';
 import { MockProvider } from './mock';
 import type { AgentProvider, PlanContext, RunContext, RunResult } from './types';
 import type { ToolBox } from '../tools/toolbox';
+import { parseLooseJson } from '../llm/json';
+
+export { parseLooseJson };
 
 export const GEMMA_TIMEOUT_MS = 12_000;
 // Verified against the live models list for this project's key (2026-10-18): gemma-4-26b-a4b-it, gemma-4-31b-it.
@@ -55,27 +58,6 @@ const PlanSchema = z
       }
     });
   });
-
-/** Strip ``` fences and return the first balanced {...} block (string-aware), parsed. */
-export function parseLooseJson(text: string): unknown {
-  const s = text.replace(/```(?:json)?/gi, '');
-  const start = s.indexOf('{');
-  if (start === -1) throw new Error('no JSON object in model output');
-  let depth = 0;
-  let inString = false;
-  for (let i = start; i < s.length; i++) {
-    const ch = s[i];
-    if (inString) {
-      if (ch === '\\') i++;
-      else if (ch === '"') inString = false;
-      continue;
-    }
-    if (ch === '"') inString = true;
-    else if (ch === '{') depth++;
-    else if (ch === '}' && --depth === 0) return JSON.parse(s.slice(start, i + 1));
-  }
-  throw new Error('unterminated JSON object in model output');
-}
 
 export function buildPlanPrompt(ctx: PlanContext): string {
   const team = ctx.team.map((r) => `- ${r}: ${ROLES[r].title} — ${ROLES[r].responsibilities.join(', ')}`).join('\n');
