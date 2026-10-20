@@ -21,6 +21,18 @@ describe('idea report scoring', () => {
     expect(report.criteria.every((criterion) => IDEA_EVIDENCE_LABELS.includes(criterion.evidenceLabel))).toBe(true);
     expect(IDEA_VERDICTS.includes(report.verdict)).toBe(true);
     expect(report.topRisks).toHaveLength(3);
+    expect(report.analysis.method).toBe('rule-based');
+    expect(report.upgradeSuggestions.mustFix.length).toBeGreaterThan(0);
+    expect(report.upgradeSuggestions.niceToHave).toHaveLength(2);
+    expect(report.upgradeSuggestions.wowFactor).toHaveLength(2);
+    expect(Object.values(report.upgradeSuggestions).flat().every((suggestion) => suggestion.effortHours > 0 && suggestion.impact)).toBe(true);
+    expect(report.userSimulations).toHaveLength(3);
+    expect(report.judgeQuestions).toHaveLength(8);
+    expect(report.failureSimulations).toHaveLength(4);
+    expect(report.timeCrunch.cutLineHours).toBe(75);
+    expect(report.timeCrunch.keep.length).toBeGreaterThan(0);
+    expect(report.timeCrunch.cut.length).toBeGreaterThan(0);
+    expect(report.impactScenarios.map((scenario) => scenario.outcome)).toEqual(['best', 'expected', 'worst']);
   });
 
   it('supports the quick idea-in report-out API flow', async () => {
@@ -39,5 +51,7 @@ describe('idea report scoring', () => {
     expect(res.body.criteria).toHaveLength(7);
     expect(res.body.ideaCard.targetUser).toBeTruthy();
     expect(IDEA_VERDICTS.includes(res.body.verdict)).toBe(true);
+    expect(res.body.judgeQuestions).toHaveLength(8);
+    expect(res.body.failureSimulations).toHaveLength(4);
   });
 });

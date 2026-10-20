@@ -33,6 +33,51 @@ export interface CriterionScore {
   evidence: string;
 }
 
+export type RecommendationGroup = 'mustFix' | 'niceToHave' | 'wowFactor';
+export type ImpactRating = 'high' | 'medium' | 'low';
+
+export interface UpgradeSuggestion {
+  title: string;
+  description: string;
+  effortHours: number;
+  impact: ImpactRating;
+  group: RecommendationGroup;
+}
+
+export interface UserSimulation {
+  user: string;
+  goal: string;
+  getsStuckAt: string;
+  improvement: string;
+}
+
+export interface JudgeQuestion {
+  question: string;
+  suggestedAnswer: string;
+}
+
+export interface FailureSimulation {
+  scenario: string;
+  fallback: string;
+}
+
+export interface TimeCrunchPlan {
+  cutLineHours: number;
+  keep: string[];
+  cut: string[];
+}
+
+export interface ImpactScenario {
+  outcome: 'best' | 'expected' | 'worst';
+  description: string;
+  assumption: string;
+}
+
+export interface IdeaAnalysis {
+  method: 'rule-based';
+  limitation: string;
+}
+
 export interface IdeaReport {
   id: string;
   generatedAt: string;
@@ -43,6 +88,13 @@ export interface IdeaReport {
   overallScore: number;
   verdict: IdeaVerdict;
   topRisks: string[];
+  analysis: IdeaAnalysis;
+  upgradeSuggestions: Record<RecommendationGroup, UpgradeSuggestion[]>;
+  userSimulations: UserSimulation[];
+  judgeQuestions: JudgeQuestion[];
+  failureSimulations: FailureSimulation[];
+  timeCrunch: TimeCrunchPlan;
+  impactScenarios: ImpactScenario[];
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
@@ -171,6 +223,193 @@ function rateCriterion(criterion: IdeaCriterion, input: IdeaInput, ideaText: str
   };
 }
 
+function buildUpgradeSuggestions(input: IdeaInput, hasSpecificUser: boolean, hasDemoSignal: boolean): Record<RecommendationGroup, UpgradeSuggestion[]> {
+  const hours = input.hoursLeft ?? 24;
+  const mustFix: UpgradeSuggestion[] = [];
+  if (!hasSpecificUser) {
+    mustFix.push({
+      title: 'Name one primary user',
+      description: 'Choose the first person who feels this problem and describe the moment they need help.',
+      effortHours: 1,
+      impact: 'high',
+      group: 'mustFix',
+    });
+  }
+  mustFix.push({
+    title: 'Validate the problem with real users',
+    description: 'Speak with at least three representative users and record the current workaround, frequency, and cost of the problem.',
+    effortHours: Math.min(4, Math.max(1, Math.ceil(hours * 0.05))),
+    impact: 'high',
+    group: 'mustFix',
+  });
+  if (!hasDemoSignal) {
+    mustFix.push({
+      title: 'Define one end-to-end demo path',
+      description: 'Write down the input, the visible product response, and the successful outcome for a single user journey.',
+      effortHours: 2,
+      impact: 'high',
+      group: 'mustFix',
+    });
+  }
+
+  return {
+    mustFix,
+    niceToHave: [
+      {
+        title: 'Add a measurable success signal',
+        description: 'Pick one metric that demonstrates the intended user benefit, such as time saved or successful task completion.',
+        effortHours: 2,
+        impact: 'medium',
+        group: 'niceToHave',
+      },
+      {
+        title: 'Prepare a resilient demo dataset',
+        description: 'Use a small, clearly labeled sample dataset so the key flow remains demonstrable if live services are unreliable.',
+        effortHours: 2,
+        impact: 'medium',
+        group: 'niceToHave',
+      },
+    ],
+    wowFactor: [
+      {
+        title: 'Show the before-and-after experience',
+        description: 'Make the old workaround and the improved outcome visible in the demo, using a real user example when available.',
+        effortHours: 3,
+        impact: 'high',
+        group: 'wowFactor',
+      },
+      {
+        title: 'Add one trustworthy technical differentiator',
+        description: 'Demonstrate a single technical feature that is essential to the user outcome instead of adding technology for its own sake.',
+        effortHours: 4,
+        impact: 'medium',
+        group: 'wowFactor',
+      },
+    ],
+  };
+}
+
+function buildUserSimulations(targetUser: string, solution: string): UserSimulation[] {
+  return [
+    {
+      user: `A first-time ${targetUser}`,
+      goal: 'Understand quickly whether this product can help with the immediate problem.',
+      getsStuckAt: 'The user may not know what information to provide or what the first result means.',
+      improvement: 'Use a short onboarding prompt, a realistic example, and plain-language result labels.',
+    },
+    {
+      user: `A returning ${targetUser}`,
+      goal: 'Complete the core task with less effort than the current workaround.',
+      getsStuckAt: 'The user may have to repeat setup or re-enter details on every visit.',
+      improvement: 'Keep the primary action prominent and preserve relevant state where feasible.',
+    },
+    {
+      user: 'A skeptical or low-connectivity user',
+      goal: 'Verify the result and continue even when trust or connectivity is limited.',
+      getsStuckAt: `The user may not trust an unexplained recommendation from ${solution.toLowerCase()}.`,
+      improvement: 'Show the source or reason behind key results and provide a clear offline or manual fallback.',
+    },
+  ];
+}
+
+function buildJudgeQuestions(input: IdeaInput, targetUser: string): JudgeQuestion[] {
+  const audience = input.targetJudges?.trim() || 'the people judging this project';
+  return [
+    {
+      question: 'What specific problem are you solving, and for whom?',
+      suggestedAnswer: `We are focusing on ${targetUser}. We will validate the pain and its current workaround with users rather than claiming the need is already proven.`,
+    },
+    {
+      question: 'How do you know people actually have this problem?',
+      suggestedAnswer: 'We will share direct user observations or interviews from this build, and label any remaining assumptions clearly.',
+    },
+    {
+      question: 'What makes this different from existing alternatives?',
+      suggestedAnswer: 'We will compare the core workflow with relevant alternatives and explain the specific gap our prototype tests.',
+    },
+    {
+      question: 'Why is this the right solution rather than a simpler process change?',
+      suggestedAnswer: 'The prototype will test whether the chosen workflow reduces a real point of friction; if not, we will simplify or pivot.',
+    },
+    {
+      question: 'Can your team deliver this reliably in the available time?',
+      suggestedAnswer: `Our plan is scoped to ${input.hoursLeft ?? 24} hours and the stated skills (${input.teamSkills?.trim() || 'not yet specified'}), with a narrow demo-ready MVP.`,
+    },
+    {
+      question: 'How will you measure whether the solution works?',
+      suggestedAnswer: 'We will use one observable task outcome, such as a completed user task or reduced time versus the current workaround.',
+    },
+    {
+      question: 'What happens when a key API, model, or network connection fails?',
+      suggestedAnswer: 'The demo has a labeled sample-data or manual fallback, and the core user flow will not depend on an unverified live integration.',
+    },
+    {
+      question: `Why should ${audience} care about this idea?`,
+      suggestedAnswer: 'We will connect the user problem to the event goals with evidence from the target users and a concrete, working demonstration.',
+    },
+  ];
+}
+
+function buildFailureSimulations(): FailureSimulation[] {
+  return [
+    {
+      scenario: 'The live demo breaks.',
+      fallback: 'Switch to a rehearsed, labeled recording or screenshots, explain the intended flow, and show the last known working build.',
+    },
+    {
+      scenario: 'A required API or external service is down.',
+      fallback: 'Use a small local fixture or mock response labeled as sample data; keep the core flow independent of the external service.',
+    },
+    {
+      scenario: 'The venue has no reliable internet.',
+      fallback: 'Preload assets and sample data, test the app offline, and prepare a short local walkthrough.',
+    },
+    {
+      scenario: 'There are no real users available before judging.',
+      fallback: 'State that validation is incomplete, show the interview questions and assumptions, and avoid presenting hypothetical results as user evidence.',
+    },
+  ];
+}
+
+function buildTimeCrunch(input: IdeaInput): TimeCrunchPlan {
+  const hours = input.hoursLeft ?? 24;
+  const cutLineHours = Math.max(1, Math.floor(hours / 2));
+  return {
+    cutLineHours,
+    keep: [
+      'One complete happy-path user journey.',
+      'A reliable demo using verified or clearly labeled sample data.',
+      'Basic error handling and a tested fallback.',
+      'A concise explanation of the user problem and what remains unvalidated.',
+    ],
+    cut: [
+      'Secondary features and additional user roles.',
+      'Optional integrations that are not required for the core outcome.',
+      'Advanced settings, analytics, and visual polish beyond the main demo path.',
+    ],
+  };
+}
+
+function buildImpactScenarios(targetUser: string): ImpactScenario[] {
+  return [
+    {
+      outcome: 'best',
+      description: `The prototype addresses a frequent, meaningful problem for ${targetUser} and earns follow-up testing with relevant partners.`,
+      assumption: 'Target users confirm the problem is urgent, and the demo shows a clear improvement over their workaround.',
+    },
+    {
+      outcome: 'expected',
+      description: 'The team delivers a credible prototype, learns which parts of the problem matter most, and identifies a focused next iteration.',
+      assumption: 'The hackathon validates the workflow direction but does not establish broad adoption or long-term impact.',
+    },
+    {
+      outcome: 'worst',
+      description: 'The prototype does not solve a high-priority problem or cannot demonstrate its benefit reliably.',
+      assumption: 'User feedback contradicts the initial problem framing, or core dependencies prevent a dependable demo.',
+    },
+  ];
+}
+
 export function scoreIdea(input: IdeaInput): IdeaReport {
   const mode: IdeaMode = input.mode ?? 'quick';
   const normalizedInput: IdeaInput = {
@@ -187,6 +426,10 @@ export function scoreIdea(input: IdeaInput): IdeaReport {
   const overallScore = Math.round(criteria.reduce((sum, item) => sum + item.score, 0) / criteria.length);
 
   const verdict: IdeaVerdict = overallScore >= 75 ? 'Build' : overallScore >= 60 ? 'Pivot' : 'Drop';
+  const hasSpecificUser = /(for|users?|students?|parents?|farmers?|small businesses?|commuters?|drivers?|patients?|workers?|teams?)/i.test(normalizedInput.idea);
+  const hasDemoSignal = /(dashboard|map|flow|booking|tracking|alerts|recommend|search|filter|upload|share|voice|ai)/i.test(normalizedInput.idea);
+  const upgrades = buildUpgradeSuggestions(normalizedInput, hasSpecificUser, hasDemoSignal);
+  const targetUser = ideaCard.targetUser;
 
   const topRisks = [
     'The user pain point is not specific enough yet to prove strong product-market fit.',
@@ -206,5 +449,15 @@ export function scoreIdea(input: IdeaInput): IdeaReport {
     overallScore,
     verdict,
     topRisks,
+    analysis: {
+      method: 'rule-based',
+      limitation: 'These recommendations and simulations are generated from the submitted text and constraints; they are hypotheses, not user research or validated market evidence.',
+    },
+    upgradeSuggestions: upgrades,
+    userSimulations: buildUserSimulations(targetUser, ideaCard.solution),
+    judgeQuestions: buildJudgeQuestions(normalizedInput, targetUser),
+    failureSimulations: buildFailureSimulations(),
+    timeCrunch: buildTimeCrunch(normalizedInput),
+    impactScenarios: buildImpactScenarios(targetUser),
   };
 }
