@@ -5,14 +5,6 @@
 
 TeamMate is a supervised AI development workspace built at **HackOberfest Hack Day Dhaka**. It explores a different way to work with AI: instead of getting a single answer from a chatbot, you give a project goal to a team of specialized AI teammates, review their plan, supervise execution, and inspect the resulting files and test reports.
 
-<p align="center">
-  <a href="https://hackoberfest-hack-day-dhaka.onrender.com/"><strong>🚀 Live Demo</strong></a>
-  &nbsp; · &nbsp;
-  <a href="https://github.com/yunuszoro46-sketch/HackOberfest-Hack-Day-Dhaka">Source Code</a>
-  &nbsp; · &nbsp;
-  <a href="https://github.com/yunuszoro46-sketch/HackOberfest-Hack-Day-Dhaka/issues">Report a Bug</a>
-</p>
-
 ---
 
 ## The Problem
