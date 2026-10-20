@@ -73,6 +73,51 @@ export interface ImpactScenario {
   assumption: string;
 }
 
+export interface ArchitectureOption {
+  name: string;
+  description: string;
+  advantages: string[];
+  tradeoffs: string[];
+  fitScore: number;
+}
+
+export interface ApiEndpointRecommendation {
+  method: 'GET' | 'POST' | 'PATCH';
+  path: string;
+  purpose: string;
+}
+
+export interface ArchitectureDecision {
+  title: string;
+  decision: string;
+  rationale: string;
+  consequences: string[];
+}
+
+export interface SystemDesignRecommendation {
+  options: ArchitectureOption[];
+  selectedOption: string;
+  mermaidDiagram: string;
+  dataModel: { entity: string; fields: string[] }[];
+  endpoints: ApiEndpointRecommendation[];
+  decisionRecord: ArchitectureDecision;
+}
+
+export interface DesignReference {
+  name: string;
+  url: string;
+  whyRelevant: string;
+}
+
+export interface UiUxDirection {
+  principles: string[];
+  keyScreens: string[];
+  mainFlow: string[];
+  colorAndType: string;
+  components: string[];
+  references: DesignReference[];
+}
+
 export interface IdeaAnalysis {
   method: 'rule-based';
   limitation: string;
@@ -95,6 +140,8 @@ export interface IdeaReport {
   failureSimulations: FailureSimulation[];
   timeCrunch: TimeCrunchPlan;
   impactScenarios: ImpactScenario[];
+  systemDesign: SystemDesignRecommendation;
+  uiUxDirection: UiUxDirection;
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
@@ -410,6 +457,127 @@ function buildImpactScenarios(targetUser: string): ImpactScenario[] {
   ];
 }
 
+function buildSystemDesign(input: IdeaInput): SystemDesignRecommendation {
+  const skills = (input.teamSkills ?? '').toLowerCase();
+  const hours = input.hoursLeft ?? 24;
+  const hasWebSkills = /(react|javascript|typescript|node|web|frontend|backend)/i.test(skills);
+  const hasPythonSkills = /(python|django|fastapi|flask)/i.test(skills);
+  const focusedMvpFit = (hasWebSkills ? 88 : hasPythonSkills ? 82 : 74) + (hours >= 48 ? 4 : 0);
+
+  return {
+    options: [
+      {
+        name: 'Single web app with managed database',
+        description: 'A browser client, one API service, and one managed relational database.',
+        advantages: ['Fastest route to one complete demo flow.', 'Simple deployment and debugging.', 'Easy to keep scope aligned with a small team.'],
+        tradeoffs: ['Less independent scaling by feature.', 'External services need clear fallbacks.', 'Requires deliberate boundaries as the product grows.'],
+        fitScore: Math.min(100, focusedMvpFit),
+      },
+      {
+        name: 'Serverless functions with managed services',
+        description: 'A static client calling independent functions and hosted data or identity services.',
+        advantages: ['Low infrastructure maintenance.', 'Useful when a managed service solves a core need.', 'Can scale individual functions independently.'],
+        tradeoffs: ['Provider setup and permissions can consume hackathon time.', 'Local testing may be less representative.', 'Vendor limits can shape the product unexpectedly.'],
+        fitScore: Math.max(50, Math.min(92, focusedMvpFit - 8)),
+      },
+      {
+        name: 'Separate frontend, API, and worker services',
+        description: 'Deploy independently owned services behind an API boundary, with asynchronous jobs as needed.',
+        advantages: ['Clear service ownership and independent scaling.', 'Useful for genuinely long-running or high-volume workloads.', 'Supports separate technology choices by component.'],
+        tradeoffs: ['More deployment, observability, and integration work.', 'Harder to finish and demo with limited hours.', 'Premature unless workload needs justify the complexity.'],
+        fitScore: Math.max(35, Math.min(80, focusedMvpFit - 25)),
+      },
+    ],
+    selectedOption: 'Single web app with managed database',
+    mermaidDiagram: [
+      'flowchart LR',
+      '  U[User] --> UI[Web client]',
+      '  UI --> API[Validated API]',
+      '  API --> DB[(Relational data store)]',
+      '  API --> EXT[Optional external API]',
+      '  API --> OBS[Logs and error reporting]',
+    ].join('\n'),
+    dataModel: [
+      { entity: 'Idea', fields: ['id', 'ownerId?', 'ideaText', 'theme', 'createdAt'] },
+      { entity: 'AnalysisRun', fields: ['id', 'ideaId', 'mode', 'status', 'score', 'verdict', 'createdAt'] },
+      { entity: 'ReportSection', fields: ['id', 'runId', 'sectionKey', 'structuredContent', 'evidenceLevel'] },
+      { entity: 'Reference', fields: ['id', 'runId', 'provider', 'url', 'summary', 'similarity', 'checkedAt'] },
+    ],
+    endpoints: [
+      { method: 'POST', path: '/api/ideas/report', purpose: 'Validate an idea submission and return a quick structured assessment.' },
+      { method: 'POST', path: '/api/ideas/research', purpose: 'Run externally sourced research after explicit user confirmation.' },
+      { method: 'GET', path: '/api/ideas/:ideaId/reports/:reportId', purpose: 'Retrieve a saved report for later review.' },
+      { method: 'GET', path: '/api/ideas/:ideaId/reports', purpose: 'List prior reports so iterations can be compared.' },
+    ],
+    decisionRecord: {
+      title: 'Use a single web application for the first build',
+      decision: 'Keep the client, API, and persistence in a small, clearly separated application; add external services only where needed.',
+      rationale: `This fits the supplied team skills (${input.teamSkills?.trim() || 'not specified'}) and ${hours} available hours, keeps the demo path testable, and avoids operating multiple services before the need is proven.`,
+      consequences: [
+        'Prioritize one vertical user journey and typed API boundaries.',
+        'Treat external integrations as optional and provide sample-data fallbacks.',
+        'Revisit service separation only when a specific scale, ownership, or reliability need appears.',
+      ],
+    },
+  };
+}
+
+function buildUiUxDirection(): UiUxDirection {
+  return {
+    principles: [
+      'Lead with the idea verdict and the evidence strength; never imply assumptions are research findings.',
+      'Progressively disclose deep analysis so a first-time user gets value quickly.',
+      'Keep the user in control before external research or other costly work begins.',
+      'Design for keyboard, screen-reader, mobile, and reduced-motion use.',
+      'Use plain language and make uncertainty and failure states actionable.',
+    ],
+    keyScreens: [
+      'Idea intake: short idea field, optional constraints, team skills, judge audience, and Quick/Deep choice.',
+      'Approval and progress: clear research scope, confirmation, provider status, and cancel/retry behavior.',
+      'Report overview: verdict, score, evidence labels, top risks, and next recommended action.',
+      'Report details: research references, simulations, architecture, UI direction, and build/pitch plan.',
+      'Iteration comparison: previous and current score, changed criteria, and the edited idea.',
+    ],
+    mainFlow: [
+      'Enter a one-sentence idea and optional context.',
+      'Choose Quick or Deep and review what the selected mode will do.',
+      'Review the initial assessment and explicitly approve external research when needed.',
+      'Follow clear progress states while report sections are generated.',
+      'Inspect evidence, risks, and recommendations; edit and rerun to compare scores.',
+    ],
+    colorAndType: 'Use a restrained indigo accent for primary actions, neutral high-contrast surfaces for report reading, and distinct accessible colors plus text labels for Build/Pivot/Drop and Found/Inferred/Assumed. Use a highly legible sans-serif for body text and a monospaced face only for technical diagrams or metadata.',
+    components: [
+      'Idea input form with optional context fields',
+      'Quick/Deep mode selector with effort disclosure',
+      'Verdict and score summary card',
+      'Evidence badge and criterion score row',
+      'Research source card with provider and link status',
+      'Progress stepper and provider status list',
+      'Recommendation card with effort and impact chips',
+      'Scenario accordion and judge Q&A list',
+      'Mermaid diagram panel and endpoint table',
+      'Accessible report tabs and iteration score comparison',
+    ],
+    references: [
+      {
+        name: 'W3C WCAG 2.2 Quick Reference',
+        url: 'https://www.w3.org/WAI/WCAG22/quickref/',
+        whyRelevant: 'Accessibility checklist for contrast, keyboard interaction, focus, and understandable controls.',
+      },
+      {
+        name: 'Material Design 3',
+        url: 'https://m3.material.io/',
+        whyRelevant: 'Reference for consistent component states, layout, and accessible interaction patterns.',
+      },
+      {
+        name: 'GOV.UK Design System',
+        url: 'https://design-system.service.gov.uk/',
+        whyRelevant: 'Practical examples of plain-language forms, predictable patterns, and accessible content hierarchy.',
+      },
+    ],
+  };
+}
+
 export function scoreIdea(input: IdeaInput): IdeaReport {
   const mode: IdeaMode = input.mode ?? 'quick';
   const normalizedInput: IdeaInput = {
@@ -459,5 +627,7 @@ export function scoreIdea(input: IdeaInput): IdeaReport {
     failureSimulations: buildFailureSimulations(),
     timeCrunch: buildTimeCrunch(normalizedInput),
     impactScenarios: buildImpactScenarios(targetUser),
+    systemDesign: buildSystemDesign(normalizedInput),
+    uiUxDirection: buildUiUxDirection(),
   };
 }

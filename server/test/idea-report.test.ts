@@ -33,6 +33,17 @@ describe('idea report scoring', () => {
     expect(report.timeCrunch.keep.length).toBeGreaterThan(0);
     expect(report.timeCrunch.cut.length).toBeGreaterThan(0);
     expect(report.impactScenarios.map((scenario) => scenario.outcome)).toEqual(['best', 'expected', 'worst']);
+    expect(report.systemDesign.options).toHaveLength(3);
+    expect(report.systemDesign.selectedOption).toBe(report.systemDesign.options[0].name);
+    expect(report.systemDesign.options[0].fitScore).toBeGreaterThan(report.systemDesign.options[2].fitScore);
+    expect(report.systemDesign.mermaidDiagram).toContain('flowchart LR');
+    expect(report.systemDesign.dataModel.length).toBeGreaterThan(0);
+    expect(report.systemDesign.endpoints.some((endpoint) => endpoint.path === '/api/ideas/report')).toBe(true);
+    expect(report.systemDesign.decisionRecord.rationale).toContain('150 available hours');
+    expect(report.uiUxDirection.keyScreens.length).toBeGreaterThan(0);
+    expect(report.uiUxDirection.mainFlow.length).toBeGreaterThan(0);
+    expect(report.uiUxDirection.references).toHaveLength(3);
+    expect(report.uiUxDirection.references.every((reference) => new URL(reference.url).protocol === 'https:')).toBe(true);
   });
 
   it('supports the quick idea-in report-out API flow', async () => {
@@ -53,5 +64,7 @@ describe('idea report scoring', () => {
     expect(IDEA_VERDICTS.includes(res.body.verdict)).toBe(true);
     expect(res.body.judgeQuestions).toHaveLength(8);
     expect(res.body.failureSimulations).toHaveLength(4);
+    expect(res.body.systemDesign.options).toHaveLength(3);
+    expect(res.body.uiUxDirection.components.length).toBeGreaterThan(0);
   });
 });
