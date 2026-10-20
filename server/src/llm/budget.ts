@@ -31,12 +31,23 @@ export class BudgetTracker {
     return { ok: true };
   }
 
-  record(id: string, limits: BudgetLimits = {}): void {
+  /** Records one request and returns an undo for a request that turned out never to be sent. */
+  record(id: string, limits: BudgetLimits = {}): () => void {
     const t = this.now();
     this.minute.set(id, [...this.recent(id, t), t]);
     const key = dayKey(t, limits.dayTimeZone);
     const d = this.day.get(id);
     this.day.set(id, { key, count: d?.key === key ? d.count + 1 : 1 });
+    let undone = false;
+    return () => {
+      if (undone) return;
+      undone = true;
+      const stamps = this.minute.get(id) ?? [];
+      const i = stamps.indexOf(t);
+      if (i !== -1) this.minute.set(id, [...stamps.slice(0, i), ...stamps.slice(i + 1)]);
+      const day = this.day.get(id);
+      if (day?.key === key && day.count > 0) this.day.set(id, { key, count: day.count - 1 });
+    };
   }
 
   usage(id: string, limits: BudgetLimits = {}): BudgetUsage {

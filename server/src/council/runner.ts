@@ -116,6 +116,8 @@ export async function runCouncil(llm: JsonGenerator, input: IdeaInput, opts: Cou
   const record = (turn: CouncilTurn) => {
     turns.push(turn);
     opts.onTurn?.(turn);
+    // The callback may itself cancel the run (e.g. a client disconnect); never return a result after that.
+    if (opts.signal?.aborted) throw abortError();
   };
   const skip = (round: CouncilRound, role: CouncilRoleId, reason: string) =>
     record({ round, role, status: 'skipped', provider: null, model: null, attempts: [], reason, output: null, usage: null, startedAt: new Date(now()).toISOString(), durationMs: 0 });
