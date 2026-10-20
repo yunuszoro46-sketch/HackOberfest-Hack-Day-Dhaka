@@ -98,9 +98,9 @@ describe('idea council', () => {
     // Rule-based sections are kept.
     expect(r.ideaCard).toEqual(scoreIdea(INPUT).ideaCard);
 
-    // Drafts drop off-focus scores before they reach the critic and chair.
-    const feasibility = out.turns[0].output as { scores: { criterion: string }[] } | null;
-    expect(feasibility).not.toBeNull();
+    // Drafts drop off-focus scores before they are recorded or reach the critic and chair.
+    const feasibility = out.turns[0].output as { scores: { criterion: string }[] };
+    expect(feasibility.scores.map((s) => s.criterion)).toEqual(COUNCIL_ROLES.feasibility.focus);
     const chairPrompt = groq.calls[4].prompt;
     expect(chairPrompt).not.toContain('off-focus');
     expect(chairPrompt).toContain('Originality is overstated.');
@@ -136,7 +136,7 @@ describe('idea council', () => {
     const out = await runCouncil(chainOf(groq), INPUT);
     expect(out.fallback).toBe('NO_DRAFTS');
     expect(summarize(out.turns)).toEqual([
-      'draft:feasibility:failed:AUTH', 'draft:market:failed:RATE_LIMIT', 'draft:judge:failed:RATE_LIMIT',
+      'draft:feasibility:failed:AUTH', 'draft:market:failed:AUTH', 'draft:judge:failed:AUTH',
       'critique:critic:skipped:NO_DRAFTS', 'synthesis:chair:skipped:NO_DRAFTS',
     ]);
     // AUTH puts groq in cooldown, so later members never reach it again.
@@ -167,6 +167,48 @@ describe('idea council', () => {
 
     const tiny = await runCouncil(chainOf(new FakeClient('groq', happy)), INPUT, { maxCalls: 1 });
     expect(tiny.fallback).toBe('BUDGET');
+  });
+
+  it('counts provider retries against maxCalls, keeping the chair reservation', async () => {
+    const failing = { ...happy, council_draft_feasibility: new LlmError('x', 'UPSTREAM', '500') };
+    const groq = new FakeClient('groq', failing);
+    const gemini = new FakeClient('gemini', { ...happy, council_synthesis: new LlmError('gemini', 'UPSTREAM', '500') });
+    const openrouter = new FakeClient('openrouter', happy);
+    const out = await runCouncil(chainOf(groq, gemini, openrouter), INPUT, { maxCalls: 3 });
+    // Feasibility: groq fails, gemini answers (2 requests). Chair: gemini fails, groq cools down, openrouter is over budget.
+    expect(summarize(out.turns)).toEqual(['draft:feasibility:ok', 'draft:market:skipped:BUDGET', 'draft:judge:skipped:BUDGET', 'critique:critic:skipped:BUDGET', 'synthesis:chair:failed:BUDGET']);
+    expect(out.turns.at(-1)?.attempts.map((a) => `${a.provider}:${a.reason}`)).toEqual(['gemini:UPSTREAM', 'groq:UPSTREAM', 'openrouter:BUDGET']);
+    expect(groq.calls.length + gemini.calls.length + openrouter.calls.length).toBe(3);
+    expect(out.report.analysis.council?.calls).toBe(3);
+  });
+
+  it('fills criteria the chair skipped from member drafts and notes it; a draft without focused scores fails', async () => {
+    const offFocusOnly = { ...draft('market', 60), scores: [{ criterion: 'feasibility', score: 5, rationale: 'off-focus' }] };
+    const groq = new FakeClient('groq', { ...happy, council_draft_market: offFocusOnly, council_synthesis: { ...synthesis, scores: [] } });
+    const out = await runCouncil(chainOf(groq), INPUT);
+    expect(summarize(out.turns)).toEqual(['draft:feasibility:ok', 'draft:market:failed:NO_SCORES', 'draft:judge:ok', 'critique:critic:ok', 'synthesis:chair:ok']);
+    const score = (c: string) => out.report.criteria.find((x) => x.criterion === c)!;
+    expect(score('feasibility')).toMatchObject({ score: 70, evidenceLabel: 'Inferred' });
+    expect(score('themeFit').score).toBe(90);
+    expect(score('problemClarity')).toEqual(scoreIdea(INPUT).criteria.find((c) => c.criterion === 'problemClarity'));
+    expect(out.report.analysis.council?.note).toMatch(/The chair did not score [^.]*\bfeasibility\b/);
+    expect(out.report.analysis.council?.note).toContain('No council member scored problemClarity');
+  });
+
+  it('rejects with ABORTED when already aborted, even with nothing to call', async () => {
+    const ac = new AbortController();
+    ac.abort();
+    const err = await runCouncil(chainOf(), INPUT, { signal: ac.signal }).then(() => null, (e) => e);
+    expect((err as LlmError).reason).toBe('ABORTED');
+  });
+
+  it('rejects with ABORTED when the run is cancelled while the chair answers', async () => {
+    const ac = new AbortController();
+    const turns: CouncilTurn[] = [];
+    const groq = new FakeClient('groq', { ...happy, council_synthesis: () => { ac.abort(); return synthesis; } });
+    const err = await runCouncil(chainOf(groq), INPUT, { signal: ac.signal, onTurn: (t) => turns.push(t) }).then(() => null, (e) => e);
+    expect((err as LlmError).reason).toBe('ABORTED');
+    expect(turns.map((t) => t.role)).not.toContain('chair');
   });
 
   it('rejects with ABORTED and stops calling when the signal aborts', async () => {

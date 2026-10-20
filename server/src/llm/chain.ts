@@ -17,6 +17,12 @@ export interface ChainResult<T> extends JsonResult<T> {
   attempts: ChainAttempt[];
 }
 
+/** A per-run cap on real provider requests (retries included), shared across calls; `used` is incremented in place. */
+export interface RunBudget {
+  limit: number;
+  used: number;
+}
+
 export interface ChainMemberStatus {
   provider: string;
   model: string;
@@ -59,7 +65,7 @@ export class FallbackChain {
   private readonly budget: BudgetTracker;
   private readonly now: () => number;
   private readonly cooldownMs: Partial<Record<LlmFailure, number>>;
-  private readonly coolUntil = new Map<string, number>();
+  private readonly coolUntil = new Map<string, { until: number; reason: LlmFailure }>();
 
   constructor(private readonly members: ChainMember[], opts: FallbackChainOptions = {}) {
     this.now = opts.now ?? Date.now;
@@ -71,19 +77,28 @@ export class FallbackChain {
     return this.members.map((m) => m.client.id);
   }
 
-  /** `prefer` moves that provider to the front (e.g. to spread council members across providers). */
-  async generateJson<T>(req: JsonRequest<T>, opts: { prefer?: string } = {}): Promise<ChainResult<T>> {
+  /**
+   * `prefer` moves that provider to the front (e.g. to spread council members across providers). `run` caps real
+   * requests across calls; once it is spent the chain stops with a BUDGET attempt instead of trying more providers.
+   */
+  async generateJson<T>(req: JsonRequest<T>, opts: { prefer?: string; run?: RunBudget } = {}): Promise<ChainResult<T>> {
     const attempts: ChainAttempt[] = [];
     for (const { client, limits = {} } of this.ordered(opts.prefer)) {
       const base = { provider: client.id, model: client.model };
-      if ((this.coolUntil.get(client.id) ?? 0) > this.now()) {
-        attempts.push({ ...base, reason: 'RATE_LIMIT' });
+      const cooling = this.coolUntil.get(client.id);
+      if (cooling && cooling.until > this.now()) {
+        attempts.push({ ...base, reason: cooling.reason });
         continue;
       }
       if (!this.budget.check(client.id, limits).ok) {
         attempts.push({ ...base, reason: 'BUDGET' });
         continue;
       }
+      if (opts.run && opts.run.used >= opts.run.limit) {
+        attempts.push({ ...base, reason: 'BUDGET' });
+        break;
+      }
+      if (opts.run) opts.run.used += 1;
       this.budget.record(client.id, limits);
       try {
         const result = await client.generateJson(req);
@@ -93,7 +108,7 @@ export class FallbackChain {
         if (err.reason === 'ABORTED' || req.signal?.aborted) throw err;
         attempts.push({ ...base, reason: err.reason });
         const wait = (err.reason === 'RATE_LIMIT' || err.reason === 'QUOTA') && err.retryAfterSec !== undefined ? err.retryAfterSec * 1000 : this.cooldownMs[err.reason];
-        if (wait) this.coolUntil.set(client.id, this.now() + wait);
+        if (wait) this.coolUntil.set(client.id, { until: this.now() + wait, reason: err.reason });
       }
     }
     throw new LlmChainError(attempts);
@@ -101,7 +116,7 @@ export class FallbackChain {
 
   status(): ChainMemberStatus[] {
     return this.members.map(({ client, limits = {} }) => {
-      const until = this.coolUntil.get(client.id) ?? 0;
+      const until = this.coolUntil.get(client.id)?.until ?? 0;
       return {
         provider: client.id,
         model: client.model,

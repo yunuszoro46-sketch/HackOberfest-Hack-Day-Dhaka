@@ -15,8 +15,8 @@ The council therefore uses its own small runner (`server/src/council/runner.ts`)
 | Orchestrator concept | Council equivalent |
 |---|---|
 | Plan approval gate (`AWAITING_APPROVAL` → `RUNNING`) | Idea run created awaiting approval; LLM calls only start after the user approves (Phase D2 API) |
-| Run budget (`maxTasks`, `maxRuntimeMs`) | `maxCalls` per run (default 5) on top of the provider RPM/RPD budgets in `FallbackChain` |
-| Cancel | `AbortSignal`; an aborted run rejects with `LlmError` reason `ABORTED` |
+| Run budget (`maxTasks`, `maxRuntimeMs`) | `maxCalls` real provider requests per run, retries included (default 5), on top of the provider RPM/RPD budgets in `FallbackChain`; one is reserved for the chair |
+| Cancel | `AbortSignal`; an aborted run rejects with `LlmError` reason `ABORTED`, also when aborted before the first call or while the last call resolves |
 | Restart recovery | Persisted runs left `RUNNING` are marked failed on boot (Phase D1) |
 | Activity log / handoffs | `onTurn` callback emits each `CouncilTurn` in order for persistence and the transcript UI |
 | Rule-based planner fallback | Rule-based `scoreIdea` report fallback |
@@ -40,9 +40,12 @@ OpenRouter for the critic, Gemini for the chair. The chain falls back to other p
 | No providers configured | Rule-based report, `fallback: 'NOT_CONFIGURED'`, no calls |
 | `maxCalls < 2` | Rule-based report, `fallback: 'BUDGET'` |
 | A member fails on every provider | Turn `failed`; the council continues with the other members |
+| A member returns no scores for its own criteria | Turn `failed` with reason `NO_SCORES` (off-focus scores are dropped before the turn is recorded) |
+| Retries use up the budget | The chain stops with a `BUDGET` attempt; later drafts and the critique are skipped, the chair keeps its reserved request |
 | Every member fails | Rule-based report, `fallback: 'NO_DRAFTS'`; critique and chair skipped |
 | Critique fails or is over budget | Chair runs without it |
 | Chair fails | Member scores are averaged; `analysis.council.note` says so |
+| Chair omits some criteria | Those use member averages, or the heuristic score if no member covered them; the note lists them |
 
 ## Report mapping
 
