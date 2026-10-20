@@ -4,7 +4,7 @@ import { FallbackChain } from '../src/llm/chain';
 import { LlmError, type JsonRequest, type JsonResult, type LlmClient } from '../src/llm/types';
 import { COUNCIL_ROLES } from '../src/council/roles';
 import { runCouncil, type CouncilTurn } from '../src/council/runner';
-import { DraftSchema, SynthesisSchema } from '../src/council/schema';
+import { CritiqueSchema, DraftSchema, SynthesisSchema } from '../src/council/schema';
 
 const INPUT: IdeaInput = {
   idea: 'A mobile app for commuters to find safe, cheap parking in Dhaka with live availability alerts.',
@@ -230,6 +230,17 @@ describe('idea council', () => {
     expect(summarize(out.turns)).toEqual(['draft:feasibility:ok', 'draft:market:skipped:BUDGET', 'draft:judge:skipped:BUDGET', 'critique:critic:skipped:BUDGET', 'synthesis:chair:ok']);
     expect(gemini.calls).toHaveLength(2);
     expect(out.report.analysis.council?.calls).toBe(2);
+  });
+
+  it('does not charge provider RPM/RPD for a NOT_CONFIGURED rejection', async () => {
+    const unconfigured = new FakeClient('groq', { '*': new LlmError('groq', 'NOT_CONFIGURED', 'API key is not set') });
+    const chain = new FallbackChain([{ client: unconfigured, limits: { rpm: 1, rpd: 1 } }, { client: new FakeClient('gemini', happy) }]);
+    for (let i = 0; i < 2; i++) {
+      const r = await chain.generateJson({ name: 'council_critique', prompt: 'p', schema: CritiqueSchema.zod });
+      expect(r.attempts.map((a) => a.reason)).toEqual(['NOT_CONFIGURED']);
+    }
+    expect(chain.status()[0].usage).toEqual({ lastMinute: 0, today: 0 });
+    expect(unconfigured.calls).toHaveLength(2);
   });
 
   it('rejects with ABORTED and stops calling when the signal aborts', async () => {
