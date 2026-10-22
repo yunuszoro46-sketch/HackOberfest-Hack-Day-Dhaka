@@ -5,6 +5,7 @@ const { app, recovered, providers } = createApp();
 
 const server = app.listen(port, () => {
   console.log(`TeamMate API on http://localhost:${port} (planner: ${providers.planner.name}, runner: ${providers.runner.name})`);
+  if (providers.warning) console.warn(`Warning: ${providers.warning}`);
   if (recovered.length) console.log(`Recovered ${recovered.length} interrupted task(s) → FAILED`);
 });
 

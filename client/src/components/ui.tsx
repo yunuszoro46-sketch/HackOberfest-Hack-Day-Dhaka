@@ -48,15 +48,39 @@ export function RoleChip({ role }: { role: AgentRole }) {
   );
 }
 
+export type ProviderKind = 'model' | 'deterministic' | 'template' | 'rules' | 'fallback';
+
+/** Who produced something, from the stored provider string. A model is only named when one really answered. */
+export function providerKind(provider: string): ProviderKind {
+  if (provider.startsWith('rules (fallback')) return 'fallback';
+  if (provider.startsWith('rules')) return 'rules';
+  if (provider === 'deterministic') return 'deterministic';
+  if (provider === 'llm' || provider === 'gemma' || provider.includes(':')) return 'model';
+  return 'template';
+}
+
+const PROVIDER_STYLE: Record<ProviderKind, string> = {
+  model: 'border-violet-500/40 text-violet-300',
+  deterministic: 'border-lime-500/40 text-lime-300',
+  template: 'border-line text-mute',
+  rules: 'border-line text-mute',
+  fallback: 'border-amber-500/40 text-amber-300',
+};
+
 export function ProviderBadge({ provider }: { provider: string }) {
-  const isModel = provider === 'gemma' || provider.startsWith('gemma:');
+  const kind = providerKind(provider);
+  const label = kind === 'model' ? (provider === 'llm' ? 'model run' : provider)
+    : kind === 'deterministic' ? 'no model · real checks'
+    : kind === 'fallback' ? 'rules (fallback)'
+    : kind === 'rules' ? provider
+    : `${provider} · template`;
+  const title = kind === 'model' ? (provider === 'llm' ? 'Model-driven run (no model reply was recorded)' : `Written by the model ${provider}`)
+    : kind === 'deterministic' ? 'Deterministic code ran real commands; no model involved'
+    : 'Produced by a deterministic role template — no model involved';
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-medium ${isModel ? 'border-violet-500/40 text-violet-300' : 'border-line text-mute'}`}
-      title={isModel ? 'Produced by the Gemma model' : 'Produced by a deterministic role template — no model involved'}
-    >
+    <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-2xs font-medium ${PROVIDER_STYLE[kind]}`} title={title} data-provider-kind={kind}>
       <Bot className="h-3 w-3" aria-hidden />
-      {isModel ? provider : provider.startsWith('rules (fallback') ? 'rules (fallback)' : provider.startsWith('rules') ? provider : `${provider} · template`}
+      {label}
     </span>
   );
 }

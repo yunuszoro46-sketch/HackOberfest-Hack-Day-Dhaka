@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
-import { BookOpen, Eye, Settings2 } from 'lucide-react';
-import { useNow } from '../../hooks';
+import { BookOpen, Bot, Eye, Settings2, Sparkles } from 'lucide-react';
+import { api } from '../../api';
+import { useAsync, useNow } from '../../hooks';
 import { RunPill } from '../RunPanels';
 import { STATUS_STYLE } from '../ui';
 import { TASK_STATUSES, type ProjectSnapshot } from '../../../../shared/types';
@@ -48,7 +49,26 @@ export function OpsBar({ s, loadedAt, error, pollMs }: { s: ProjectSnapshot; loa
           </div>
         ))}
         <div><dt className="inline">Files </dt><dd className="inline text-ink">{files}</dd></div>
+        <ExecutionMode />
       </dl>
     </header>
+  );
+}
+
+/** Says up front whether a model or the role templates will execute tasks. QA and docs never use a model. */
+function ExecutionMode() {
+  const health = useAsync(() => api.health(), []);
+  const ex = health.data?.execution;
+  if (!ex) return null;
+  const model = ex.mode === 'model';
+  const Icon = model ? Sparkles : Bot;
+  return (
+    <div className="flex items-center gap-1.5 normal-case tracking-normal" data-testid="execution-mode" data-mode={ex.mode} title={ex.warning ?? (model ? 'Builders write code with a model; QA and docs are deterministic.' : 'Role templates write the files; no model is used.')}>
+      <dt className="sr-only">Execution</dt>
+      <dd className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 ${model ? 'border-violet-500/40 text-violet-200' : ex.warning ? 'border-amber-500/40 text-amber-200' : 'border-line text-mute'}`}>
+        <Icon className="h-3 w-3" aria-hidden />
+        {model ? `Builders: ${ex.models.join(' → ') || 'model'} · QA: real checks` : ex.warning ? 'Templates (no model key set)' : 'Templates · no model'}
+      </dd>
+    </div>
   );
 }

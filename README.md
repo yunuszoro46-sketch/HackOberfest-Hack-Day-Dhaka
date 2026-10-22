@@ -5,6 +5,17 @@
 
 TeamMate is a supervised AI development workspace built at **HackOberfest Hack Day Dhaka**. It explores a different way to work with AI: instead of getting a single answer from a chatbot, you give a project goal to a team of specialized AI teammates, review their plan, supervise execution, and inspect the resulting files and test reports.
 
+### How TeamMate differs from a coding agent
+
+Most coding agents are one agent that plans, writes, tests and reports its own success. You review at the end. TeamMate is built around the human supervising a team:
+
+| Typical coding agent | TeamMate |
+|---|---|
+| The agent reports its own success | A separate QA teammate runs real commands; the verdict comes from exit codes, never from a model |
+| You review a finished diff at the end | You approve the plan before anything runs, and decide every failure |
+| Context lives in one long chat | Structured handoffs: the files passed on, the checks the sender actually ran, and open questions |
+| Hard to tell what the model did | Every run and file is labelled: which model wrote it, or that a template or deterministic code did |
+
 ---
 
 ## The Problem
@@ -59,20 +70,36 @@ Recommended screenshots:
 
 ## How Much of This Is AI?
 
-Transparency matters. TeamMate combines AI-assisted planning with a supervised execution system, but not every teammate currently generates code using an LLM.
+TeamMate has three execution modes, set with `AGENT_PROVIDER`. Every agent run records who actually did the work, and the interface shows it on each task, file and handoff.
 
-| Capability | Default mode | Gemma planning mode |
-|---|---|---|
-| Task planning | Rule-based planner | Gemma, with rule-based fallback |
-| Frontend artifact generation | Built-in templates | Built-in templates |
-| QA execution | Real permitted checks and test commands | Same |
-| QA report | Based on actual command results | Same |
-| Documentation | Generated from stored project data | Same |
-| Human approval and supervision | Supported | Supported |
+| Capability | `mock` (default, offline) | `gemma` | `llm` (model-driven) |
+|---|---|---|---|
+| Task planning | Rule-based planner | Gemma, rule-based fallback | Model via the provider chain (Gemini, Groq, OpenRouter or Ollama), rule-based fallback |
+| Builder roles (frontend, backend, AI/ML) | Built-in templates | Built-in templates | **The model writes the files**, then the runner syntax-checks them |
+| Researcher | Labelled placeholder note | Same | The model writes `notes/*.md` |
+| QA | Real checks and `node --test` | Same | Same: deterministic on purpose, no model |
+| Documentation | Built from stored project data | Same | Same: deterministic, no model |
+| Fix after a QA failure | Template restores the logic and re-runs the tests | Same | The model gets the QA report, current code and your note, then must pass the tests before handing back |
+| Approval, supervision, handoffs | Supported | Supported | Supported |
 
-**Important limitation:** Gemma is used for planning when configured and available; it does not automatically power every teammate. The current implementation uses templates for frontend artifacts, while other roles may produce placeholder outputs. Template-based outputs are labelled in the interface rather than being presented as live model-generated code.
+In `llm` mode the model can only answer with files. Every path is validated before anything is written: builders may write `src/**`, `tests/<name>.test.mjs` and `notes/*.md`. They can't write `reports/`, `docs/`, or anything outside the project workspace. A reply with one bad path writes nothing and the task fails with the reason, so you can retry it with a note. If no model key is configured, `llm` mode falls back to templates and says so in the workspace header.
 
 The orchestration, persistence, approval flow, permitted tool execution, and QA reporting are separate from the model provider.
+
+## Demo: One Task From Plan to Recovery
+
+This is the end-to-end path: real files, real tests, a real failure and a supervised recovery.
+
+1. Start with a model: `AGENT_PROVIDER=llm` and `GEMINI_API_KEY=...` (see [Model-driven execution](#model-driven-execution-gemini)). The workspace header shows `Builders: gemini:gemini-2.5-flash · QA: real checks`. Without a key, the same flow runs offline with templates.
+2. Create a project with a **Frontend Engineer** and a **QA Engineer**.
+3. Send: `simulate a failure, implement booking validation and test edge cases`.
+   - "simulate a failure" is a labelled demo switch. The plan you approve marks the first build task with **[Demo fault injection]**. Its first attempt ships one realistic bug; with a model, the model is told to plant it and to list it under "unknowns".
+4. Approve the plan. The builder writes `src/*.ts` and `tests/*.test.mjs`, and the handoff to QA lists the files, the syntax checks that ran, and the unknowns.
+5. QA runs `node --test` for real. The tests fail and the run **pauses**. The decision card shows the failing test names and proposes **Send back to fix**.
+6. Add a note (for example, "back-to-back bookings must be allowed") and send it back.
+   - A fix task is inserted before QA. The builder receives QA's failure report, the current code and your note.
+   - It must pass the test suite itself before handing back. QA then re-runs every check and writes a PASS report with the raw output.
+7. The **Handoffs & recovery** panel shows the whole chain: handoff → failure → your decision → fix → re-verified handoff.
 
 ## Safety and Reliability
 
@@ -149,18 +176,27 @@ npm test
 
 Use the repository's Playwright configuration and scripts for browser tests. Consult `package.json` for the available test commands.
 
-## Optional Gemma Planning
+## Model-Driven Execution (Gemini)
 
-TeamMate supports an optional Gemma-based planner. Without provider configuration, it uses the rule-based planner.
+1. Create an API key in [Google AI Studio](https://aistudio.google.com/apikey).
+2. Copy `.env.example` to `.env` (or set these as deployment secrets):
 
-To enable Gemma:
+   ```bash
+   AGENT_PROVIDER=llm
+   GEMINI_API_KEY=your-key
+   LLM_PROVIDERS=gemini        # optional; add groq,openrouter for fallback
+   # GEMINI_MODEL=gemini-2.5-flash
+   ```
 
-1. Create an API key through [Google AI Studio](https://aistudio.google.com/apikey).
-2. Review `.env.example` and the server's provider configuration to identify the exact supported environment variable names.
-3. Configure the key and provider settings in your local environment or deployment secrets.
-4. Restart the server and verify that the application reports successful Gemma planning rather than a rule-based fallback.
+3. Restart the server. On startup it prints `runner: llm`, and `GET /api/health` reports `execution.mode: "model"` with the model list (keys are never returned).
 
-**Never commit API keys or expose them in frontend code.** If the provider is unavailable, the planner may fall back to rule-based planning.
+Each task can take up to 3 minutes in this mode (one model call plus the checks). Rate limits, quota errors and invalid replies fail the task with a short reason code; the run then pauses for your retry or skip decision.
+
+**Never commit API keys or expose them in frontend code.**
+
+### Optional Gemma planning only
+
+`AGENT_PROVIDER=gemma` with `GEMMA_API_KEY` uses Gemma for planning only. Templates still execute, and the rule-based planner takes over if Gemma is unavailable.
 
 ## Optional LLM Providers
 
@@ -222,7 +258,7 @@ A provider layer for IdeaMate's optional model-backed report runs lives in `serv
 
 ### Last verification
 
-At commit `6f881fc`, `npm test` passed (77 tests), `npm run build` passed (client production build and server typecheck), and `npm run test:e2e` passed (5 browser tests). Re-run these checks after future code changes; this README-only update does not change runtime behavior.
+After adding model-driven TeamMate execution, the real QA → fix → re-test recovery loop, and the handoffs panel: `npm test` passed (84 tests), `npm run build` passed (client production build and server typecheck), and `npm run test:e2e` passed (5 browser tests). The model path is tested with a scripted fake model, so no API key is needed. A live run against Gemini has not been recorded in this repository yet.
 
 ## Project Structure
 
@@ -234,7 +270,7 @@ HackOberfest-Hack-Day-Dhaka/
 ├── e2e/                 # Playwright browser tests
 ├── docs/
 │   └── screenshots/     # Project screenshots
-├── .env.example         # Example configuration
+├── .env.example         # Example configuration (copy to .env)
 ├── package.json         # Scripts and dependencies
 └── README.md
 ```

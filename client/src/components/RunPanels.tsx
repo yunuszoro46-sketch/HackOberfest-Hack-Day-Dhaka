@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Loader2, Lock, Pause, Play, X } from 'lucide-react';
+import { Check, Loader2, Lock, Pause, Play, Wrench, X } from 'lucide-react';
 import { api } from '../api';
 import { ErrorNote, ProviderBadge, RoleChip } from './ui';
 import { PlannerLine } from './PlannerLine';
@@ -143,23 +143,30 @@ export function RunControls({ s, onChange }: { s: ProjectSnapshot; onChange: () 
 export function DecisionCard({ d, title, onChange }: { d: PendingDecision; title?: string; onChange: () => Promise<void> }) {
   const { pending, error, run } = useAction(onChange);
   const [note, setNote] = useState('');
+  // A QA failure is sent back to the builder; re-running QA on the same code would only fail again.
+  const fix = d.proposed === 'fix';
   return (
-    <article className="card border-amber-500/40 p-4" data-testid="decision-card">
+    <article className={`card p-4 ${fix ? 'border-rose-500/40' : 'border-amber-500/40'}`} data-testid="decision-card" data-decision-kind={fix ? 'fix' : 'retry'}>
       <div className="flex flex-wrap items-center gap-2 text-2xs text-mute">
-        <span className="font-medium uppercase tracking-wide text-amber-300">Decision needed</span>
+        <span className={`font-medium uppercase tracking-wide ${fix ? 'text-rose-300' : 'text-amber-300'}`}>{fix ? 'QA failed · decision needed' : 'Decision needed'}</span>
         {title && <span>· {title}</span>}
         <ProviderBadge provider={d.provider} />
       </div>
       <p className="mt-1.5 text-sm">{d.question}</p>
-      <p className="mt-1 text-xs text-mute">{d.context} · proposed: <strong className="text-ink">{d.proposed}</strong> · alternative: {d.alternatives.join(', ')}</p>
-      <label htmlFor={`note-${d.id}`} className="mt-3 block text-xs text-mute">Instructions for the teammate (optional)</label>
+      <p className="mt-1 text-xs text-mute">{d.context} · proposed: <strong className="text-ink">{fix ? 'send back to fix' : d.proposed}</strong> · alternative: {d.alternatives.join(', ')}</p>
+      {fix && (
+        <p className="mt-2 text-xs text-mute">
+          Approving inserts a fix task for the builder before QA. The builder gets the QA report and your note, must re-run the tests itself, then QA re-checks everything with the same commands.
+        </p>
+      )}
+      <label htmlFor={`note-${d.id}`} className="mt-3 block text-xs text-mute">{fix ? 'Note for the builder (optional)' : 'Instructions for the teammate (optional)'}</label>
       <textarea id={`note-${d.id}`} className="input mt-1 min-h-16" value={note} onChange={(e) => setNote(e.target.value)} maxLength={2000} />
       <div className="mt-3 flex gap-2">
         <button className="btn-primary flex-1" disabled={!!pending} onClick={() => run('approve', () => api.resolveDecision(d.id, 'approve', note))}>
-          {pending === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />} Approve (retry)
+          {pending === 'approve' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : fix ? <Wrench className="h-4 w-4" aria-hidden /> : <Check className="h-4 w-4" aria-hidden />} {fix ? 'Send back to fix' : 'Approve (retry)'}
         </button>
         <button className="btn-secondary flex-1" disabled={!!pending} onClick={() => run('reject', () => api.resolveDecision(d.id, 'reject', note))}>
-          {pending === 'reject' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <X className="h-4 w-4" aria-hidden />} Reject (skip)
+          {pending === 'reject' ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <X className="h-4 w-4" aria-hidden />} {fix ? 'Skip (leave QA failed)' : 'Reject (skip)'}
         </button>
       </div>
       <ErrorNote error={error} />

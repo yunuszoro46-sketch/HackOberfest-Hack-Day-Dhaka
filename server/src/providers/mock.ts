@@ -1,7 +1,7 @@
 // MockProvider (D1/D4): deterministic templates, but every tool call is real.
 // Frontend writes runnable files, QA really runs them, Docs really reads the project data.
 import { ROLES } from '../agents/roles';
-import { rulePlan, SIMULATED_FAILURE_TITLE } from '../agents/planner';
+import { isFaultInjected, isFixTask, rulePlan } from '../agents/planner';
 import type { ToolBox, CommandResult } from '../tools/toolbox';
 import type { AgentProvider, PlanContext, RunContext, RunResult } from './types';
 import { bookingModule, bookingTests, mockNote, roomAvailabilityComponent } from './templates';
@@ -19,7 +19,9 @@ export class MockProvider implements AgentProvider {
   }
 
   async run(ctx: RunContext, tools: ToolBox): Promise<RunResult> {
-    if (ctx.task.title === SIMULATED_FAILURE_TITLE) return simulatedFailure(ctx);
+    // Fault-injected builds and QA fixes always work on the booking module, whatever the builder role.
+    if (isFixTask(ctx.task)) return runFix(ctx, tools);
+    if (isFaultInjected(ctx.task)) return runFrontend(ctx, tools);
     switch (ctx.task.role) {
       case 'frontend':
         return runFrontend(ctx, tools);
@@ -37,16 +39,18 @@ export class MockProvider implements AgentProvider {
   }
 }
 
-function simulatedFailure(ctx: RunContext): RunResult {
-  if (ctx.attempt === 1) {
-    throw new Error('Simulated failure on attempt 1 (demo). Press Retry: attempt 2 succeeds.');
-  }
-  return { ok: true, summary: `Simulated task succeeded on attempt ${ctx.attempt} (demo, no real work done).` };
-}
+/** The bug fault injection plants: closed intervals, so back-to-back bookings count as overlapping. */
+export const PLANTED_BUG = { file: 'src/booking.ts', from: 'return aStart < bEnd && bStart < aEnd;', to: 'return aStart <= bEnd && bStart <= aEnd;' } as const;
+
+const plantBug = (src: string) => {
+  if (!src.includes(PLANTED_BUG.from)) throw new Error('fault injection: template changed, bug site not found');
+  return src.replace(PLANTED_BUG.from, PLANTED_BUG.to);
+};
 
 async function runFrontend(ctx: RunContext, tools: ToolBox): Promise<RunResult> {
+  const inject = isFaultInjected(ctx.task) && ctx.attempt === 1;
   const ui = UI_RE.test(ctx.task.title);
-  const logic = LOGIC_RE.test(ctx.task.title);
+  const logic = LOGIC_RE.test(ctx.task.title) || isFaultInjected(ctx.task);
   const wantUi = ui || !logic;
   const wantLogic = logic || !ui;
   const written: string[] = [];
@@ -54,7 +58,8 @@ async function runFrontend(ctx: RunContext, tools: ToolBox): Promise<RunResult> 
 
   // The component depends on the booking module, so make sure it exists.
   if (wantLogic || !tools.exists('src/booking.ts')) {
-    tools.writeFile('src/booking.ts', bookingModule(ctx.project, ctx.task));
+    const src = bookingModule(ctx.project, ctx.task);
+    tools.writeFile('src/booking.ts', inject ? plantBug(src) : src);
     written.push('src/booking.ts');
     kinds['src/booking.ts'] = 'code';
   }
@@ -70,14 +75,47 @@ async function runFrontend(ctx: RunContext, tools: ToolBox): Promise<RunResult> 
   }
 
   // Self-check what we wrote before handing over.
+  const checks: string[] = [];
   for (const f of written.filter((f) => /\.(ts|mjs)$/.test(f))) {
     const r = await tools.runApproved('syntax-check', f);
-    if (r.exitCode !== 0) return { ok: false, summary: `Syntax check failed for ${f}`, error: `${f}: ${firstLine(r.stderr)}`, kinds };
+    checks.push(`syntax-check ${f}: exit ${r.exitCode}`);
+    if (r.exitCode !== 0) return { ok: false, summary: `Syntax check failed for ${f}`, error: `${f}: ${firstLine(r.stderr)}`, kinds, checks };
   }
   return {
     ok: true,
-    summary: `Wrote ${written.join(', ')} from the Frontend role template and syntax-checked the scripts.`,
+    summary: `Wrote ${written.join(', ')} from the Frontend role template and syntax-checked the scripts.` +
+      (inject ? ' Demo fault injection: overlaps() treats back-to-back bookings as conflicts (planted bug, attempt 1 only).' : ''),
     kinds,
+    checks,
+    unknowns: inject ? ['Demo: a bug was planted in src/booking.ts on purpose; QA should catch it.'] : [],
+  };
+}
+
+/** Fix task after a QA failure: read the report, restore correct logic, prove it with the real test run. */
+async function runFix(ctx: RunContext, tools: ToolBox): Promise<RunResult> {
+  const report = tools.exists('reports/qa-report.md') ? tools.readFile('reports/qa-report.md') : '';
+  const failing = [...report.matchAll(/^not ok \d+ - (.+)$/gm)].map((m) => m[1].trim());
+  const current = tools.exists(PLANTED_BUG.file) ? tools.readFile(PLANTED_BUG.file) : '';
+  const kinds: RunResult['kinds'] = { [PLANTED_BUG.file]: 'code' };
+  if (current.includes(PLANTED_BUG.to)) {
+    tools.writeFile(PLANTED_BUG.file, current.replace(PLANTED_BUG.to, PLANTED_BUG.from));
+  } else {
+    tools.writeFile(PLANTED_BUG.file, bookingModule(ctx.project, ctx.task));
+  }
+  const checks: string[] = [];
+  const syntax = await tools.runApproved('syntax-check', PLANTED_BUG.file);
+  checks.push(`syntax-check ${PLANTED_BUG.file}: exit ${syntax.exitCode}`);
+  if (syntax.exitCode !== 0) return { ok: false, summary: 'Fix did not parse', error: firstLine(syntax.stderr), kinds, checks };
+  const tests = await tools.runApproved('run-tests');
+  const pass = /^# pass (\d+)/m.exec(tests.stdout)?.[1] ?? '?';
+  const fail = /^# fail (\d+)/m.exec(tests.stdout)?.[1] ?? '?';
+  checks.push(`run-tests: ${pass} passed, ${fail} failed (exit ${tests.timedOut ? 'timeout' : tests.exitCode})`);
+  if (tests.exitCode !== 0) return { ok: false, summary: 'Tests still fail after the fix', error: `run-tests: ${fail} failed`, kinds, checks };
+  return {
+    ok: true,
+    summary: `Fixed ${PLANTED_BUG.file}: overlaps() uses half-open intervals again${failing.length ? `, which fixes "${failing.join('", "')}"` : ''}. Re-ran the suite: ${pass} passed. (Role template, no model.)`,
+    kinds,
+    checks,
   };
 }
 
@@ -97,7 +135,7 @@ const fmtCmd = (r: CommandResult) =>
   (r.stderr ? `--- stderr ---\n${r.stderr.trimEnd()}\n` : '');
 
 /** QA (T8): only approved commands, raw output in the report, PASS only if everything passed. */
-export async function runQa(ctx: RunContext, tools: ToolBox): Promise<RunResult> {
+export async function runQa(ctx: RunContext, tools: ToolBox, producedBy = 'mock role template'): Promise<RunResult> {
   const files = tools.listFiles().filter((f) => !f.startsWith('reports/') && !f.startsWith('docs/'));
   const checks: Check[] = [];
 
@@ -125,10 +163,11 @@ export async function runQa(ctx: RunContext, tools: ToolBox): Promise<RunResult>
     const r = await tools.runApproved('run-tests');
     const pass = /^# pass (\d+)/m.exec(r.stdout)?.[1];
     const fail = /^# fail (\d+)/m.exec(r.stdout)?.[1];
+    const failing = [...r.stdout.matchAll(/^not ok \d+ - (.+)$/gm)].map((m) => `"${m[1].trim()}"`);
     checks.push({
       name: 'run-tests',
       passed: r.exitCode === 0 && !r.timedOut,
-      detail: r.timedOut ? 'timed out' : `${pass ?? '?'} passed, ${fail ?? '?'} failed`,
+      detail: r.timedOut ? 'timed out' : `${pass ?? '?'} passed, ${fail ?? '?'} failed${failing.length ? `: ${failing.slice(0, 5).join(', ')}` : ''}`,
       output: fmtCmd(r),
     });
   } else {
@@ -145,7 +184,7 @@ export async function runQa(ctx: RunContext, tools: ToolBox): Promise<RunResult>
     `**Verdict: ${verdict}** (${checks.length - failed.length}/${checks.length} checks passed)`,
     '',
     `- Task: ${ctx.task.title} (attempt ${ctx.attempt})`,
-    `- Produced by: QA Engineer (provider: mock role template — the checks below were really executed)`,
+    `- Produced by: QA Engineer (provider: ${producedBy} — the checks below were really executed)`,
     `- Files inspected: ${files.length ? files.join(', ') : '(none)'}`,
     '',
     '## Checks',
@@ -161,19 +200,21 @@ export async function runQa(ctx: RunContext, tools: ToolBox): Promise<RunResult>
   tools.writeFile('reports/qa-report.md', report);
 
   const kinds = { 'reports/qa-report.md': 'report' as const };
+  const ran = checks.map((c) => `${c.name}: ${c.passed ? 'PASS' : 'FAIL'} (${c.detail})`);
   if (failed.length) {
     return {
       ok: false,
       summary: `QA verdict FAIL: ${failed.length} of ${checks.length} checks failed.`,
       error: `QA failed: ${failed.map((c) => `${c.name} (${c.detail})`).join('; ')}`.slice(0, 500),
       kinds,
+      checks: ran,
     };
   }
-  return { ok: true, summary: `QA verdict PASS: ${checks.length}/${checks.length} checks passed. Report in reports/qa-report.md.`, kinds };
+  return { ok: true, summary: `QA verdict PASS: ${checks.length}/${checks.length} checks passed. Report in reports/qa-report.md.`, kinds, checks: ran };
 }
 
 /** Docs (T9): built only from project data, results, the file list and the QA report. */
-export async function runDocs(ctx: RunContext, tools: ToolBox): Promise<RunResult> {
+export async function runDocs(ctx: RunContext, tools: ToolBox, providerLabel = 'mock role template'): Promise<RunResult> {
   const files = tools.listFiles().filter((f) => f !== 'docs/README.md');
   let qaVerdict = 'No QA report exists in the workspace yet.';
   if (files.includes('reports/qa-report.md')) {
@@ -187,7 +228,7 @@ export async function runDocs(ctx: RunContext, tools: ToolBox): Promise<RunResul
   const readme = [
     `# ${ctx.project.name}`,
     '',
-    `> Written by the TeamMate Documentation agent (provider: mock role template) from project data only.`,
+    `> Written by the TeamMate Documentation agent (provider: ${providerLabel}) from project data only.`,
     '> Anything not recorded in the project is listed as unknown rather than guessed.',
     '',
     '## Goal',

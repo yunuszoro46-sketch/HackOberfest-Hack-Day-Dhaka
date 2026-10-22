@@ -39,6 +39,8 @@ export interface JsonRequest<T> {
   jsonSchema?: Record<string, unknown>;
   temperature?: number;
   maxOutputTokens?: number;
+  /** Overrides the client's request timeout, e.g. for long code-writing replies. */
+  timeoutMs?: number;
   signal?: AbortSignal;
 }
 

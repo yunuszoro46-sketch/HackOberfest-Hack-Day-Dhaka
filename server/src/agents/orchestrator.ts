@@ -15,7 +15,8 @@ import type { Providers } from '../providers';
 import type { PriorResult, RunResult } from '../providers/types';
 import { ToolBox } from '../tools/toolbox';
 import { GemmaError } from '../providers/gemma';
-import { rulePlan, type Plan } from './planner';
+import { planFailureCode } from '../providers/llm';
+import { BUILDER_ROLES, FIX_MARKER, parseFaultInjection, rulePlan, withFaultInjection, type Plan } from './planner';
 import { ROLES } from './roles';
 
 export const RUN_TIMEOUT_MS = 120_000;
@@ -39,7 +40,7 @@ export class Orchestrator {
     this.repo = repo;
     this.providers = providers;
     this.workspaceRoot = workspaceRoot;
-    this.runTimeoutMs = opts.runTimeoutMs ?? RUN_TIMEOUT_MS;
+    this.runTimeoutMs = opts.runTimeoutMs ?? providers.runner.runTimeoutMs ?? RUN_TIMEOUT_MS;
   }
 
   workspaceFor(projectId: string): string {
@@ -70,32 +71,36 @@ export class Orchestrator {
     const decisions = this.repo.listDecisions(projectId);
 
     const { planner } = this.providers;
+    // "simulate a failure" is a demo switch, not work: strip it before planning, apply it to the plan after.
+    const { text: work, inject } = parseFaultInjection(text);
     let plan: Plan;
     let plannerProvider: string;
     let fallback: { reason: string; detail: string } | null = null;
-    if (planner.name === 'mock') {
-      plan = rulePlan(text, team);
+    if (planner.name === 'mock' || !work) {
+      plan = rulePlan(work, team);
       plannerProvider = 'rules';
     } else {
       try {
-        plan = await planner.plan({ project, decisions, team, command: text });
-        plannerProvider = planner.label ?? planner.name;
+        plan = await planner.plan({ project, decisions, team, command: work });
+        plannerProvider = plan.by ?? planner.label ?? planner.name;
       } catch (err) {
         // Only the short reason code is stored; never the key or a raw response body.
-        const reason = err instanceof GemmaError ? err.reason : 'UPSTREAM';
-        fallback = { reason, detail: err instanceof GemmaError ? err.message : 'planner error' };
-        plan = rulePlan(text, team);
+        const reason = err instanceof GemmaError ? err.reason : planFailureCode(err);
+        fallback = { reason, detail: err instanceof Error ? err.message.slice(0, 200) : 'planner error' };
+        plan = rulePlan(work, team);
         plannerProvider = `rules (fallback: ${planner.name} ${reason})`;
       }
     }
+    if (inject) plan = withFaultInjection(plan, team);
     if (plan.tasks.length === 0) throw new ApiErr('EMPTY_PLAN', 'Could not find any work in that command. Try describing what to build, test or document.');
 
-    const plannerLabel = plannerProvider.startsWith('gemma') ? 'Gemma planner' : plannerProvider === 'rules' ? 'Rule planner' : 'Rule planner (fallback)';
+    const plannerLabel = plannerProvider === 'rules' ? 'Rule planner' : plannerProvider.startsWith('rules') ? 'Rule planner (fallback)'
+      : plannerProvider.startsWith('gemma') ? 'Gemma planner' : 'Model planner';
     const { command, tasks, run } = this.repo.db.transaction(() => {
       const command = this.repo.createCommand(projectId, text, plannerProvider, plan.note);
       this.repo.logActivity(projectId, null, 'command_received', 'leader', `Command: "${text}"`, { commandId: command.id });
       if (fallback) {
-        this.repo.logActivity(projectId, null, 'planner.fallback', 'system', `Gemma planner unavailable (${fallback.reason}: ${fallback.detail}); the rule-based planner made this plan`, { commandId: command.id, reason: fallback.reason, provider: planner.name });
+        this.repo.logActivity(projectId, null, 'planner.fallback', 'system', `${planner.name === 'gemma' ? 'Gemma' : 'Model'} planner unavailable (${fallback.reason}: ${fallback.detail}); the rule-based planner made this plan`, { commandId: command.id, reason: fallback.reason, provider: planner.name });
       }
       const run = this.repo.createSupRun({
         projectId, commandId: command.id, maxTasks: limits.maxTasks ?? DEFAULT_MAX_TASKS, maxRuntimeMs: limits.maxRuntimeMs ?? DEFAULT_MAX_RUNTIME_MS,
@@ -154,16 +159,23 @@ export class Orchestrator {
     this.settleRuns(projectId);
   }
 
-  /** Structured handoff to the next queued task of the same run (execution is sequential; no free-form chat). */
-  private handoff(task: Task, agentRunId: string, summary: string): void {
+  /**
+   * Structured handoff to the next queued task of the same run (execution is sequential; no free-form chat):
+   * what was passed on, what the sender actually checked, and what is still unknown.
+   */
+  private handoff(task: Task, agentRunId: string, result: RunResult): void {
     const next = this.repo.listTasks(task.projectId).find((t) => t.runId === task.runId && t.status === 'QUEUED');
     if (!next) return;
     const paths = this.repo.artifactsForRun(agentRunId).map((a) => a.path);
-    const provider = this.providers.runner.name;
-    const body = `Artifacts ready: ${paths.length ? paths.join(', ') : '(none)'}. Summary: ${summary}`;
+    const provider = result.provider ?? this.providers.runner.name;
+    const checks = result.checks ?? [];
+    const unknowns = result.unknowns ?? [];
+    const body = `Artifacts ready: ${paths.length ? paths.join(', ') : '(none)'}. Summary: ${result.summary}` +
+      (checks.length ? ` Checked: ${checks.join('; ')}.` : ' Checked: nothing was run before handoff.') +
+      (unknowns.length ? ` Unknowns: ${unknowns.join('; ')}` : '');
     this.repo.addMessage(task.projectId, next.id, ROLES[task.role].title, body, { kind: 'handoff', toRole: next.role, provider });
     this.repo.logActivity(task.projectId, next.id, 'agent.handoff', ROLES[task.role].title, `Handoff to ${ROLES[next.role].title} ("${next.title}"): ${body}`, {
-      fromTaskId: task.id, toTaskId: next.id, toRole: next.role, paths, provider,
+      fromTaskId: task.id, toTaskId: next.id, toRole: next.role, fromRole: task.role, paths, provider, checks, unknowns, summary: result.summary, handoff: 'work',
     });
   }
 
@@ -209,15 +221,32 @@ export class Orchestrator {
     this.repo.touchRun(run.id);
     if (task.status === 'FAILED' && run.status === 'RUNNING') {
       this.repo.setRunStatus(run.id, ['RUNNING'], 'PAUSED', { summary: `Paused: "${task.title}" failed` });
-      const d = this.repo.createPending({
-        projectId: task.projectId, runId: run.id, taskId: task.id,
-        question: `Task "${task.title}" failed: ${(task.lastError ?? 'unknown error').replace(/\.+$/, '')}. Retry or skip?`,
-        context: `${ROLES[task.role].title}, attempt ${task.attempts}`, proposed: 'retry', alternatives: ['skip'],
-        provider: run.provider,
-      });
+      const error = (task.lastError ?? 'unknown error').replace(/^QA failed: /, '').replace(/\.+$/, '');
+      // A QA failure goes back to whoever built the code; re-running QA on the same code would fail the same way.
+      const builder = task.role === 'qa' ? this.builderFor(task) : null;
+      const d = builder
+        ? this.repo.createPending({
+            projectId: task.projectId, runId: run.id, taskId: task.id,
+            question: `QA "${task.title}" failed: ${error}. Send it back to the ${ROLES[builder.role].title} to fix, then re-run QA?`,
+            context: `${ROLES[task.role].title}, attempt ${task.attempts} · fix goes to ${ROLES[builder.role].title} ("${builder.title}") · report: reports/qa-report.md`,
+            proposed: 'fix', alternatives: ['skip'], provider: run.provider,
+          })
+        : this.repo.createPending({
+            projectId: task.projectId, runId: run.id, taskId: task.id,
+            question: `Task "${task.title}" failed: ${error}. Retry or skip?`,
+            context: `${ROLES[task.role].title}, attempt ${task.attempts}`, proposed: 'retry', alternatives: ['skip'],
+            provider: run.provider,
+          });
       this.repo.logActivity(task.projectId, task.id, 'run.status', 'system', 'Run PAUSED: waiting for a leader decision', { runId: run.id, to: 'PAUSED' });
       this.repo.logActivity(task.projectId, task.id, 'decision.requested', 'system', d.question, { decisionId: d.id, runId: run.id, provider: d.provider });
     }
+  }
+
+  /** The most recent finished build task of the same run: the teammate a QA failure goes back to. */
+  private builderFor(qa: Task): Task | null {
+    return this.repo.listTasks(qa.projectId)
+      .filter((t) => t.runId === qa.runId && t.position < qa.position && BUILDER_ROLES.includes(t.role) && (t.status === 'REVIEW' || t.status === 'COMPLETED'))
+      .at(-1) ?? null;
   }
 
   /** RUNNING runs with nothing left to claim or finish are COMPLETED. */
@@ -290,6 +319,7 @@ export class Orchestrator {
     if (d.status !== 'PENDING') throw new ApiErr('INVALID_TRANSITION', 'This decision was already resolved');
     const task = this.repo.getTask(d.taskId)!;
     const note = instructions?.trim() || null;
+    if (d.proposed === 'fix' && action === 'approve') return this.sendBackForFix(d.id, task, note);
     const out = this.repo.db.transaction(() => {
       const resolved = this.repo.resolvePending(decisionId, action, 'leader', note);
       if (!resolved) return null;
@@ -310,6 +340,44 @@ export class Orchestrator {
     return out;
   }
 
+  /**
+   * Leader approved sending a QA failure back: a fix task for the builder goes in front of QA, carrying QA's
+   * failure and the leader's note; QA is queued again so it re-verifies the fix with the same real checks.
+   */
+  private sendBackForFix(decisionId: string, qa: Task, note: string | null) {
+    const builder = this.builderFor(qa);
+    if (!builder) throw new ApiErr('INVALID_TRANSITION', 'No finished build task to send this failure back to');
+    const builderTitle = ROLES[builder.role].title;
+    const error = qa.lastError ?? 'QA failed';
+    const out = this.repo.db.transaction(() => {
+      const resolved = this.repo.resolvePending(decisionId, 'approve', 'leader', note);
+      if (!resolved) return null;
+      const fix = this.repo.createTask({
+        projectId: qa.projectId, commandId: qa.commandId, runId: qa.runId, role: builder.role, status: 'QUEUED', position: qa.position,
+        title: `Fix what QA found in "${builder.title}"`.slice(0, 120),
+        description: `${FIX_MARKER} ${error}. Read reports/qa-report.md, fix the root cause in the source, and re-run the tests before handing back to QA.`,
+      });
+      if (note) this.repo.addMessage(qa.projectId, fix.id, 'leader', note);
+      const body = `Failure report: ${error}. Full output in reports/qa-report.md.${note ? ` Leader's note: ${note}` : ''}`;
+      this.repo.addMessage(qa.projectId, fix.id, ROLES[qa.role].title, body, { kind: 'handoff', toRole: builder.role, provider: this.providers.runner.name });
+      this.repo.logActivity(qa.projectId, fix.id, 'task_created', 'leader', `Planned: "${fix.title}" → ${builderTitle} (QA failure sent back by the leader)`, { role: fix.role, status: fix.status, runId: qa.runId });
+      this.repo.logActivity(qa.projectId, fix.id, 'agent.handoff', ROLES[qa.role].title, `Handoff to ${builderTitle} ("${fix.title}"): ${body}`, {
+        fromTaskId: qa.id, toTaskId: fix.id, toRole: builder.role, fromRole: qa.role, paths: ['reports/qa-report.md'], provider: this.providers.runner.name,
+        checks: [], unknowns: [], summary: error, handoff: 'failure', note,
+      });
+      this.repo.transition(qa.id, 'FAILED', 'QUEUED', { lastError: null });
+      this.repo.addDecision(qa.projectId, `Send "${qa.title}" failure back to the ${builderTitle}`, note ?? 'Leader chose to fix the code and re-run QA', 'leader');
+      this.repo.setRunStatus(qa.runId!, ['PAUSED'], 'RUNNING', { summary: null });
+      this.repo.logActivity(qa.projectId, qa.id, 'decision.resolved', 'leader', `Approved fix: "${fix.title}" queued for the ${builderTitle}; QA re-runs after it${note ? ` — note: ${note}` : ''}`, {
+        decisionId, action: 'approve', runId: qa.runId, fixTaskId: fix.id, provider: this.providers.runner.name,
+      });
+      return resolved;
+    })();
+    if (!out) throw new ApiErr('STALE', 'Decision changed meanwhile; refresh and try again');
+    void this.kick(qa.projectId);
+    return out;
+  }
+
   /** Leader actions on a task re-check its run: gated while awaiting approval or cancelled, reopen a finished run. */
   private reopenRunFor(task: Task): void {
     if (!task.runId) return;
@@ -327,6 +395,7 @@ export class Orchestrator {
     const project = this.repo.getProject(task.projectId)!;
     const role = ROLES[task.role];
     const { runner } = this.providers;
+    const previousError = this.repo.listRunsForTask(task.id).filter((r) => r.status === 'failed').at(-1)?.error ?? null;
     const run = this.repo.createRun(task, runner.name);
     this.repo.logActivity(task.projectId, task.id, 'task_status', role.title, `"${task.title}" → IN_PROGRESS (attempt ${task.attempts})`, { from: 'QUEUED', to: 'IN_PROGRESS' });
     this.repo.logActivity(task.projectId, task.id, 'run_started', role.title, `${role.title} started "${task.title}" (provider: ${runner.name})`, { runId: run.id, provider: runner.name });
@@ -352,6 +421,7 @@ export class Orchestrator {
             project, decisions: this.repo.listDecisions(task.projectId), team: this.repo.listAgents(task.projectId).map((a) => a.role),
             task, role, attempt: task.attempts, priorResults: this.priorResults(task), signal: ac.signal,
             leaderNotes: this.repo.listMessagesForTask(task.id).filter((m) => m.author === 'leader').map((m) => m.body),
+            previousError,
           },
           tools,
         ),
@@ -374,18 +444,20 @@ export class Orchestrator {
       this.repo.logActivity(task.projectId, task.id, 'artifact_created', role.title, `Deliverable: ${rel}`, { artifactId: a.id, path: rel });
     }
 
-    this.repo.finishRun(run.id, result.ok ? 'succeeded' : 'failed', result.summary, result.ok ? null : result.error ?? 'failed');
+    this.repo.finishRun(run.id, result.ok ? 'succeeded' : 'failed', result.summary, result.ok ? null : result.error ?? 'failed', result.provider);
     this.repo.addMessage(task.projectId, task.id, role.title, result.ok ? result.summary : `${result.summary}: ${result.error ?? ''}`);
 
     const to: TaskStatus = result.ok ? 'REVIEW' : 'FAILED';
     const moved = this.repo.transition(task.id, 'IN_PROGRESS', to, result.ok ? { summary: result.summary, lastError: null } : { lastError: result.error ?? 'failed' });
     if (moved) {
       this.repo.logActivity(task.projectId, task.id, 'task_status', role.title, `"${task.title}" → ${to}${result.ok ? '' : `: ${result.error}`}`, { from: 'IN_PROGRESS', to });
-      if (to === 'REVIEW' && task.runId) this.handoff(task, run.id, result.summary);
+      if (to === 'REVIEW' && task.runId) this.handoff(task, run.id, result);
     } else {
       this.repo.logActivity(task.projectId, task.id, 'system', 'system', `Run finished but "${task.title}" was moved by the leader meanwhile; result kept, status unchanged.`);
     }
-    this.repo.logActivity(task.projectId, task.id, 'run_finished', role.title, `${role.title} ${result.ok ? 'finished' : 'failed'} "${task.title}"`, { runId: run.id, ok: result.ok });
+    this.repo.logActivity(task.projectId, task.id, 'run_finished', role.title, `${role.title} ${result.ok ? 'finished' : 'failed'} "${task.title}" (provider: ${result.provider ?? runner.name})`, {
+      runId: run.id, ok: result.ok, provider: result.provider ?? runner.name, checks: result.checks ?? [], unknowns: result.unknowns ?? [],
+    });
   }
 
   /** The DB is the source of truth: re-create any workspace file that went missing (latest version per path). */

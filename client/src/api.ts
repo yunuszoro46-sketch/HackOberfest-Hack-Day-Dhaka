@@ -6,6 +6,13 @@ import type { IdeaInput, IdeaReport } from '../../shared/idea-report';
 import type { IdeaResearchResult } from '../../shared/idea-research';
 import type { IdeaRun, IdeaRunDetail } from '../../shared/idea-run';
 
+export interface Health {
+  ok: boolean;
+  plannerProvider: string;
+  runnerProvider: string;
+  execution?: { mode: 'model' | 'templates'; models: string[]; warning?: string };
+}
+
 export class ApiError extends Error {
   code: string;
   status: number;
@@ -37,7 +44,7 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
 
 export const api = {
   roles: () => req<RoleDefinition[]>('GET', '/api/roles'),
-  health: () => req<{ ok: boolean; plannerProvider: string; runnerProvider: string }>('GET', '/api/health'),
+  health: () => req<Health>('GET', '/api/health'),
   projects: () => req<Project[]>('GET', '/api/projects'),
   project: (id: string) => req<Project & { agents: ProjectAgent[]; decisions: Decision[] }>('GET', `/api/projects/${id}`),
   createProject: (b: { name: string; goal: string; constraints: string }) => req<Project>('POST', '/api/projects', b),

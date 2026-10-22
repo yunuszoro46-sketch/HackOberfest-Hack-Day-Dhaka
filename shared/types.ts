@@ -236,6 +236,8 @@ export interface ProjectSnapshot {
   runs: AgentRun[];
   artifacts: Artifact[];
   activity: ActivityEvent[];
+  /** Handoffs and leader decisions, oldest first (not capped by tool-call volume like `activity`). */
+  trail: ActivityEvent[];
   decisions: Decision[];
   commands: Command[];
   busy: boolean;

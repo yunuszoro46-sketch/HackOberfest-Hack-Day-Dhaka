@@ -59,7 +59,7 @@ export class OpenAICompatibleClient implements LlmClient {
       `${this.opts.baseUrl.replace(/\/+$/, '')}/chat/completions`,
       headers,
       body,
-      this.opts.timeoutMs ?? LLM_TIMEOUT_MS,
+      req.timeoutMs ?? this.opts.timeoutMs ?? LLM_TIMEOUT_MS,
       req.signal,
     )) as ChatCompletion;
     const text = json.choices?.[0]?.message?.content ?? '';

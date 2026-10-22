@@ -94,24 +94,27 @@ describe('supervised runs', () => {
 });
 
 describe('failure decisions', () => {
-  it('reject leaves the task FAILED and the run continues', async () => {
+  it('a real QA failure pauses the run and proposes sending it back; skip leaves QA FAILED', async () => {
     const a = makeApp();
     const pid = await createDemoProject(a.http);
     const cmd = await commandAndRun(a, pid, 'simulate a failure, build a signup form');
+    expect(cmd.body.tasks.map((t: any) => [t.role, t.title])).toEqual([['frontend', 'Build a signup form'], ['qa', 'Test edge cases']]);
+    expect(cmd.body.tasks[0].description).toContain('[Demo fault injection]');
     let snap = (await a.http.get(`/api/projects/${pid}/snapshot`)).body;
     expect(snap.run.status).toBe('PAUSED');
+    expect(snap.tasks.map((t: any) => t.status)).toEqual(['REVIEW', 'FAILED']);
     expect(snap.pendingDecisions).toHaveLength(1);
     const d = snap.pendingDecisions[0];
-    expect(d).toMatchObject({ proposed: 'retry', alternatives: ['skip'], provider: 'mock' });
-    expect(d.question).toMatch(/^Task "Simulated failure \(demo\)" failed: .+ Retry or skip\?$/);
-    expect(a.repo.listTasks(pid)[1].status).toBe('QUEUED'); // second task not run while paused
+    expect(d).toMatchObject({ proposed: 'fix', alternatives: ['skip'], provider: 'mock' });
+    // The failure is a real test run: the planted off-by-one breaks back-to-back bookings.
+    expect(d.question).toMatch(/^QA "Test edge cases" failed: .*"allows back-to-back bookings".* Send it back to the Frontend Engineer to fix, then re-run QA\?$/);
     expect((await a.http.post(`/api/runs/${cmd.body.run.id}/resume`)).status).toBe(409); // decide first
     const r = await a.http.post(`/api/decisions/${d.id}`).send({ action: 'reject' });
     expect(r.body).toMatchObject({ status: 'RESOLVED', resolution: 'reject', resolvedBy: 'leader' });
     await a.orch.idle(pid);
     snap = (await a.http.get(`/api/projects/${pid}/snapshot`)).body;
-    expect(snap.tasks.map((t: any) => t.status)).toEqual(['FAILED', 'REVIEW']);
-    expect(snap.tasks[0].blockedReason).toBe('Skipped by leader');
+    expect(snap.tasks.map((t: any) => t.status)).toEqual(['REVIEW', 'FAILED']);
+    expect(snap.tasks[1].blockedReason).toBe('Skipped by leader');
     expect(snap.run.status).toBe('COMPLETED');
     expect(snap.pendingDecisions).toHaveLength(0);
     expect(snap.activity.some((e: any) => e.type === 'decision.resolved' && e.actor === 'leader' && e.data.action === 'reject')).toBe(true);
@@ -119,20 +122,42 @@ describe('failure decisions', () => {
     a.db.close();
   });
 
-  it('approve retries; instructions are stored and visible on the task', async () => {
+  it('approve sends the failure back: a fix task runs before QA, then QA re-runs and passes', async () => {
     const a = makeApp();
     const pid = await createDemoProject(a.http);
     const cmd = await commandAndRun(a, pid, 'simulate a failure');
+    const [build, qa] = cmd.body.taskIds;
     const d = (await a.http.get(`/api/projects/${pid}/snapshot`)).body.pendingDecisions[0];
-    await a.http.post(`/api/decisions/${d.id}`).send({ action: 'approve', instructions: 'Try again with the cached data' });
+    expect(d.proposed).toBe('fix');
+    await a.http.post(`/api/decisions/${d.id}`).send({ action: 'approve', instructions: 'Back-to-back bookings must be allowed' });
     await a.orch.idle(pid);
-    const t = (await a.http.get(`/api/tasks/${cmd.body.taskIds[0]}`)).body;
-    expect(t.status).toBe('REVIEW');
-    expect(t.attempts).toBe(2);
-    expect(t.messages.some((m: any) => m.author === 'leader' && m.body === 'Try again with the cached data')).toBe(true);
-    expect(a.repo.getPending(d.id)?.instructions).toBe('Try again with the cached data');
-    expect(a.repo.listDecisions(pid).some((x) => x.rationale === 'Try again with the cached data')).toBe(true);
-    expect(await (await a.http.get(`/api/runs/${cmd.body.run.id}`)).body.status).toBe('COMPLETED');
+
+    const tasks = a.repo.listTasks(pid);
+    expect(tasks.map((t) => [t.role, t.status])).toEqual([['frontend', 'REVIEW'], ['frontend', 'REVIEW'], ['qa', 'REVIEW']]);
+    const fix = tasks[1];
+    expect(fix.title).toBe('Fix what QA found in "Implement booking validation"');
+    expect(fix.description).toMatch(/^\[QA fix\] QA failed: .*run-tests/);
+
+    // The fix task got QA's failure as a handoff plus the leader's note, and proved itself with the real suite.
+    const fixDetail = (await a.http.get(`/api/tasks/${fix.id}`)).body;
+    expect(fixDetail.messages.some((m: any) => m.kind === 'handoff' && m.author === 'QA Engineer' && /Back-to-back bookings must be allowed/.test(m.body))).toBe(true);
+    expect(fixDetail.messages.some((m: any) => m.author === 'leader' && m.body === 'Back-to-back bookings must be allowed')).toBe(true);
+    expect(fixDetail.runs[0].summary).toMatch(/Fixed src\/booking\.ts.*"allows back-to-back bookings".*7 passed/);
+
+    const q = (await a.http.get(`/api/tasks/${qa}`)).body;
+    expect(q.attempts).toBe(2);
+    expect(q.runs.map((r: any) => r.status)).toEqual(['failed', 'succeeded']);
+    const report = (await a.http.get(`/api/artifacts/${q.artifacts.at(-1).id}`)).body.content as string;
+    expect(report).toContain('**Verdict: PASS**');
+    expect(report).toMatch(/# pass 7/);
+
+    // The fix handed back to QA with what it checked.
+    const back = a.repo.listHandoffs(pid).find((m) => m.taskId === qa && m.author === 'Frontend Engineer' && /Fixed/.test(m.body));
+    expect(back?.body).toMatch(/Checked: syntax-check src\/booking\.ts: exit 0; run-tests: 7 passed, 0 failed \(exit 0\)/);
+    expect(a.repo.getPending(d.id)?.instructions).toBe('Back-to-back bookings must be allowed');
+    expect(a.repo.listDecisions(pid).some((x) => x.title === 'Send "Test edge cases" failure back to the Frontend Engineer')).toBe(true);
+    expect((await a.http.get(`/api/runs/${cmd.body.run.id}`)).body.status).toBe('COMPLETED');
+    void build;
     a.db.close();
   });
 });

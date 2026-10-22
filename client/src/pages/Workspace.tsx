@@ -13,6 +13,7 @@ import { TeamRoster } from '../components/workspace/TeamRoster';
 import { TaskBoard } from '../components/workspace/TaskBoard';
 import { ActivityStream } from '../components/workspace/ActivityStream';
 import { Deliverables } from '../components/workspace/Deliverables';
+import { HandoffTrail } from '../components/workspace/HandoffTrail';
 import { Announcer } from '../components/Announcer';
 import type { ProjectSnapshot } from '../../../shared/types';
 
@@ -69,6 +70,8 @@ export default function Workspace() {
           )}
         </div>
       </div>
+
+      <div className="mt-4"><HandoffTrail s={s} /></div>
 
       <div className="mt-4 flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1 lg:hidden" role="tablist" aria-label="Workspace sections">
         {tabs.map((t) => (

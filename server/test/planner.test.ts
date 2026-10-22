@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { rulePlan, SIMULATED_FAILURE_TITLE } from '../src/agents/planner';
+import { FAULT_MARKER, isFaultInjected, parseFaultInjection, rulePlan, withFaultInjection } from '../src/agents/planner';
 import { DEMO_COMMAND } from './helpers';
 
 describe('rule planner', () => {
@@ -19,10 +19,21 @@ describe('rule planner', () => {
     expect(plan.tasks.map((t) => t.role)).toEqual(['frontend', 'qa', 'docs']);
   });
 
-  it('adds a deliberate failure task on "simulate a failure"', () => {
-    const plan = rulePlan('simulate a failure', ['frontend', 'qa']);
-    expect(plan.tasks).toHaveLength(1);
-    expect(plan.tasks[0]).toMatchObject({ role: 'frontend', title: SIMULATED_FAILURE_TITLE });
+  it('"simulate a failure" is stripped from the work and switches fault injection on', () => {
+    expect(parseFaultInjection('simulate a failure, build a signup form')).toEqual({ inject: true, text: 'build a signup form' });
+    expect(parseFaultInjection('build a signup form')).toEqual({ inject: false, text: 'build a signup form' });
+    expect(parseFaultInjection('Simulate failure')).toEqual({ inject: true, text: '' });
+  });
+
+  it('fault injection marks the first build task and makes sure QA runs after it', () => {
+    const plan = withFaultInjection(rulePlan('build a signup form, write the readme', ['frontend', 'qa', 'docs']), ['frontend', 'qa', 'docs']);
+    expect(plan.tasks.map((t) => t.role)).toEqual(['frontend', 'qa', 'docs']);
+    expect(plan.tasks[0].description).toContain(FAULT_MARKER);
+    expect(plan.tasks.filter(isFaultInjected)).toHaveLength(1);
+    expect(plan.note).toMatch(/Demo fault injection/);
+    // Nothing to build: a build task is added for the builder on the team.
+    const empty = withFaultInjection(rulePlan('', ['backend', 'qa']), ['backend', 'qa']);
+    expect(empty.tasks.map((t) => [t.role, t.title])).toEqual([['backend', 'Implement booking validation'], ['qa', 'Test edge cases']]);
   });
 
   it('returns no tasks for an empty command', () => {

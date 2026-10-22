@@ -144,8 +144,16 @@ export class Repo {
   createTask(input: {
     projectId: string; commandId: string | null; role: AgentRole; title: string; description: string;
     status: 'QUEUED' | 'BLOCKED'; blockedReason?: string | null; runId?: string | null;
+    /** Insert at this position, shifting later tasks down (callers wrap this in a transaction). Default: last. */
+    position?: number;
   }): Task {
-    const pos = (this.db.prepare('SELECT COALESCE(MAX(position), 0) + 1 FROM tasks WHERE project_id = ?').pluck().get(input.projectId) as number);
+    let pos: number;
+    if (input.position !== undefined) {
+      this.db.prepare('UPDATE tasks SET position = position + 1 WHERE project_id = ? AND position >= ?').run(input.projectId, input.position);
+      pos = input.position;
+    } else {
+      pos = this.db.prepare('SELECT COALESCE(MAX(position), 0) + 1 FROM tasks WHERE project_id = ?').pluck().get(input.projectId) as number;
+    }
     const t = {
       id: id(), project_id: input.projectId, command_id: input.commandId, role: input.role, title: input.title,
       description: input.description, status: input.status, position: pos, blocked_reason: input.blockedReason ?? null,
@@ -219,8 +227,10 @@ export class Repo {
     return this.getRun(r.id)!;
   }
 
-  finishRun(runId: string, status: Exclude<AgentRunStatus, 'running'>, summary: string | null, error: string | null): void {
-    this.db.prepare('UPDATE agent_runs SET status = ?, summary = ?, error = ?, finished_at = ? WHERE id = ?').run(status, summary, error, now(), runId);
+  /** `provider` replaces the runner name recorded at start with who actually did the work (e.g. the model that answered). */
+  finishRun(runId: string, status: Exclude<AgentRunStatus, 'running'>, summary: string | null, error: string | null, provider?: string): void {
+    this.db.prepare('UPDATE agent_runs SET status = ?, summary = ?, error = ?, finished_at = ?, provider = COALESCE(?, provider) WHERE id = ?')
+      .run(status, summary, error, now(), provider ?? null, runId);
   }
 
   getRun(runId: string): AgentRun | null {
@@ -379,6 +389,12 @@ export class Repo {
   logActivity(projectId: string, taskId: string | null, type: ActivityType, actor: string, message: string, data?: Record<string, unknown>): void {
     this.db.prepare('INSERT INTO activity_events (project_id, task_id, type, actor, message, data, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run(projectId, taskId, type, actor, message, data ? JSON.stringify(data) : null, now());
+  }
+
+  /** Handoffs and leader decisions, oldest first: the supervision trail, unaffected by tool-call volume. */
+  listTrail(projectId: string, limit = 80): ActivityEvent[] {
+    return (this.db.prepare(`SELECT * FROM (SELECT * FROM activity_events WHERE project_id = ? AND type IN ('agent.handoff', 'decision.requested', 'decision.resolved')
+      ORDER BY id DESC LIMIT ?) ORDER BY id`).all(projectId, limit) as Row[]).map(toEvent);
   }
 
   listActivity(projectId: string, limit = 100): ActivityEvent[] {

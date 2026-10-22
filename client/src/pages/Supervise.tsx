@@ -7,6 +7,7 @@ import { AsyncState, ErrorNote, ProviderBadge, RoleChip, StatusBadge } from '../
 import { RunControls, RunPill, commandLockReason } from '../components/RunPanels';
 import { NeedsYou } from '../components/workspace/NeedsYou';
 import { Announcer } from '../components/Announcer';
+import { HandoffTrail } from '../components/workspace/HandoffTrail';
 import { TASK_STATUSES, type ProjectSnapshot } from '../../../shared/types';
 
 /** Mobile-first supervision view: run, decisions, agents, tasks, recent activity, deliverables, command. */
@@ -61,6 +62,7 @@ export default function Supervise() {
             <RunControls s={s} onChange={snap.reload} />
           </section>
 
+          <HandoffTrail s={s} compact />
           <Agents s={s} />
           <Tasks s={s} />
           <Recent s={s} />
@@ -188,7 +190,7 @@ function CommandBox({ s, onSent }: { s: ProjectSnapshot; onSent: () => Promise<v
     <form onSubmit={submit} className="card p-4" aria-label="New command">
       <label htmlFor="sup-cmd" className="label">New command</label>
       <textarea id="sup-cmd" className="input min-h-16" value={text} onChange={(e) => setText(e.target.value)} disabled={!!lock || busy} maxLength={2000}
-        placeholder={lock ? '' : 'e.g. "simulate a failure"'} />
+        placeholder={lock ? '' : 'e.g. "simulate a failure, implement booking validation"'} />
       {lock && <p className="mt-1 text-xs text-amber-300" data-testid="command-lock">{lock}</p>}
       <button className="btn-primary mt-2 w-full" disabled={!!lock || busy || !text.trim()}>
         {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Send className="h-4 w-4" aria-hidden />} Plan it

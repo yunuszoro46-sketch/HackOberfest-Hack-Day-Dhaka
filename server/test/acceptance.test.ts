@@ -50,22 +50,22 @@ describe('acceptance: demo scenario via API', () => {
     expect(snap.tasks.map((t: any) => [t.id, t.status])).toEqual(before.map(([id, s]: any) => [id, id === frontendTask.id ? 'COMPLETED' : s]));
     expect((await b.http.get(`/api/artifacts/${qaArt.id}`)).body.content).toContain('PASS');
 
-    // 9: simulated failure → FAILED → decision → approve (retry) → REVIEW, two runs kept
+    // 9: fault injection → QA really fails → decision → send back to fix → QA re-runs → PASS
     const fail = await commandAndRun(b, pid, 'simulate a failure');
-    const failId = fail.body.taskIds[0];
-    let ft = (await b.http.get(`/api/tasks/${failId}`)).body;
-    expect(ft.status).toBe('FAILED');
-    expect(ft.lastError).toMatch(/Simulated failure/);
+    const [, qaId] = fail.body.taskIds;
+    let qt = (await b.http.get(`/api/tasks/${qaId}`)).body;
+    expect(qt.status).toBe('FAILED');
+    expect(qt.lastError).toMatch(/run-tests \(6 passed, 1 failed: "allows back-to-back bookings"\)/);
     const pending = (await b.http.get(`/api/projects/${pid}/snapshot`)).body.pendingDecisions;
     expect(pending).toHaveLength(1);
-    expect((await b.http.post(`/api/tasks/${failId}/retry`)).status).toBe(409); // must go through the decision
-    const retry = await b.http.post(`/api/decisions/${pending[0].id}`).send({ action: 'approve' });
-    expect(retry.status).toBe(200);
+    expect((await b.http.post(`/api/tasks/${qaId}/retry`)).status).toBe(409); // must go through the decision
+    const fix = await b.http.post(`/api/decisions/${pending[0].id}`).send({ action: 'approve' });
+    expect(fix.status).toBe(200);
     await b.orch.idle(pid);
-    ft = (await b.http.get(`/api/tasks/${failId}`)).body;
-    expect(ft.status).toBe('REVIEW');
-    expect(ft.attempts).toBe(2);
-    expect(ft.runs.map((r: any) => r.status)).toEqual(['failed', 'succeeded']);
+    qt = (await b.http.get(`/api/tasks/${qaId}`)).body;
+    expect(qt.status).toBe('REVIEW');
+    expect(qt.attempts).toBe(2);
+    expect(qt.runs.map((r: any) => r.status)).toEqual(['failed', 'succeeded']);
 
     // 10: add the Docs agent, unblock → README from real project data
     await b.http.post(`/api/projects/${pid}/decisions`).send({ title: 'Store bookings locally', rationale: 'No external services allowed' });

@@ -47,7 +47,7 @@ const TaskSchema = z
   })
   .strict();
 
-const PlanSchema = z
+export const PlanSchema = z
   .object({ tasks: z.array(TaskSchema).min(1).max(12), note: z.string().max(1000).default('') })
   .strict()
   .superRefine((plan, ctx) => {

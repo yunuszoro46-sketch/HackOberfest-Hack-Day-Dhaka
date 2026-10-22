@@ -80,9 +80,9 @@ export function createApp(opts: AppOptions = {}) {
   const { db } = openDb(opts.dbFile);
   const repo = new Repo(db);
   const workspaceRoot = opts.workspaceRoot ?? process.env.TEAMMATE_WORKSPACE ?? path.join(SERVER_ROOT, 'workspace');
-  const providers = opts.providers ?? createProviders();
-  const researchService = opts.researchService ?? createIdeaResearchService();
   const llm = opts.llm ?? createLlm();
+  const providers = opts.providers ?? createProviders(undefined, llm.chain);
+  const researchService = opts.researchService ?? createIdeaResearchService();
   const orch = new Orchestrator(repo, providers, workspaceRoot, { runTimeoutMs: opts.runTimeoutMs });
   const recovered = orch.boot();
   const council = new CouncilService(new IdeaRunRepo(db), llm.chain);
@@ -102,7 +102,16 @@ export function createApp(opts: AppOptions = {}) {
   const project = (id: string) => repo.getProject(id) ?? (() => { throw notFound('Project'); })();
 
   app.get('/api/health', (_req, res) => {
-    res.json({ ok: true, plannerProvider: providers.planner.name, runnerProvider: providers.runner.name });
+    const modelRun = providers.runner.name === 'llm';
+    res.json({
+      ok: true, plannerProvider: providers.planner.name, runnerProvider: providers.runner.name,
+      // What will execute tasks, so the UI can say it before anything runs. Never includes keys.
+      execution: {
+        mode: modelRun ? 'model' : 'templates',
+        models: modelRun ? llm.chain.status().map((m) => `${m.provider}:${m.model}`) : [],
+        ...(providers.warning ? { warning: providers.warning } : {}),
+      },
+    });
   });
 
   app.post('/api/ideas/report', (req, res) => {
@@ -153,6 +162,7 @@ export function createApp(opts: AppOptions = {}) {
       runs: repo.listRunsForProject(p.id),
       artifacts: repo.listArtifacts(p.id),
       activity: repo.listActivity(p.id, 150),
+      trail: repo.listTrail(p.id),
       decisions: repo.listDecisions(p.id),
       commands: repo.listCommands(p.id),
       busy: orch.isBusy(p.id),

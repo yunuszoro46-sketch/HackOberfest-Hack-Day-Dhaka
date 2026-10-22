@@ -46,7 +46,7 @@ export class GeminiClient implements LlmClient {
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.model)}:generateContent`,
       { 'x-goog-api-key': this.opts.apiKey },
       { contents: [{ role: 'user', parts: [{ text }] }], generationConfig },
-      this.opts.timeoutMs ?? LLM_TIMEOUT_MS,
+      req.timeoutMs ?? this.opts.timeoutMs ?? LLM_TIMEOUT_MS,
       req.signal,
     )) as GenerateContentResponse;
     const reply = json.candidates?.[0]?.content?.parts?.filter((p) => !p.thought).map((p) => p.text ?? '').join('') ?? '';
