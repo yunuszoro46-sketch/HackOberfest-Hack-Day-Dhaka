@@ -94,3 +94,20 @@ registerMock("directions", (req) => {
   const fresh = all.filter((d) => !kept.includes(`- ${d.title}:`));
   return JSON.stringify({ directions: fresh.slice(0, Math.max(1, Math.min(3, count))) });
 });
+
+registerMock("preview", (req) => {
+  const u = req.user;
+  const dir = between(u, "direction").split("\n")[0] ?? "Direction";
+  const note = between(u, "note").toLowerCase();
+  const core = cardLine(u, "Core action") || "Do the main thing";
+  const mobile = /mobile/.test(note);
+  const dark = /dark/.test(note);
+  const shell = mobile ? "mx-auto max-w-sm min-h-screen border-x border-slate-200" : "mx-auto max-w-3xl";
+  const bg = dark ? "bg-slate-900 text-slate-100" : "bg-slate-50 text-slate-900";
+  const nav = (title: string) => `<header class="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3"><span class="font-semibold text-slate-900">${title}</span><nav class="flex gap-3 text-sm text-slate-600"><a href="#" data-goto="home">Home</a></nav></header>`;
+  return `<!doctype html><html><head><title>${dir}</title><script src="https://cdn.tailwindcss.com"></script></head><body class="${bg}"><div class="${shell}">
+<section data-screen="home" data-title="Home">${nav("StudySpot")}<main class="space-y-3 p-4"><div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><h3 class="font-medium text-slate-900">${core}</h3><p class="mt-1 text-sm text-slate-600">3 rooms free near you · updated 1 min ago</p></div><ul class="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white"><li class="flex items-center justify-between px-4 py-3"><span class="text-sm text-slate-900">Library 2.14 · 4 seats</span><span class="text-xs text-slate-500">free until 15:00</span></li><li class="flex items-center justify-between px-4 py-3"><span class="text-sm text-slate-900">Science 1.03 · 6 seats</span><span class="text-xs text-slate-500">free until 16:30</span></li></ul><button type="button" data-goto="pick" class="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white">Pick a room</button></main></section>
+<section data-screen="pick" data-title="Pick a time">${nav("StudySpot")}<main class="space-y-3 p-4"><form class="space-y-3"><label class="block text-sm font-medium text-slate-700">Start<input class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="14:00"></label><label class="block text-sm font-medium text-slate-700">People<input class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="3"></label></form><button type="button" data-goto="done" class="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white">Book Library 2.14</button></main></section>
+<section data-screen="done" data-title="Booked">${nav("StudySpot")}<main class="space-y-3 p-4"><div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><h3 class="font-medium text-slate-900">Booked: Library 2.14</h3><p class="mt-1 text-sm text-slate-600">Today 14:00–15:00 · 3 people · code 4821</p></div><div class="rounded-xl border border-dashed border-slate-300 p-8 text-center"><p class="font-medium">No other bookings today</p><p class="mt-1 text-sm text-slate-500">Free rooms appear on Home.</p></div><button type="button" data-goto="home" class="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white">Back to rooms</button></main></section>
+</div></body></html>`;
+});

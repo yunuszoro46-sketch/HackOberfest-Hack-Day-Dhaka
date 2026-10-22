@@ -50,6 +50,28 @@ test("demo path", async ({ page }) => {
   await page.locator('[data-stage="council"]').click();
   await expect(page.getByRole("radio", { name: /Choose Narrow to one moment/ })).toBeChecked();
 
+  // 4. Preview → click through 3 screens → regenerate with "mobile-first" → compare
+  await page.getByRole("button", { name: /Next: Preview/ }).click();
+  await page.getByTestId("generate-preview").click();
+  const frame = page.frameLocator('[data-testid="preview-frame"]').first();
+  await expect(frame.locator('[data-screen="home"]')).toBeVisible({ timeout: 30_000 });
+  await expect(frame.locator('[data-screen="pick"]')).toBeHidden();
+  await frame.getByRole("button", { name: "Pick a room" }).click();
+  await expect(frame.locator('[data-screen="pick"]')).toBeVisible();
+  await frame.getByRole("button", { name: /Book Library 2.14/ }).click();
+  await expect(frame.locator('[data-screen="done"]')).toBeVisible();
+  await frame.locator('[data-tm-tab="home"]').click(); // bottom switcher bar
+  await expect(frame.locator('[data-screen="home"]')).toBeVisible();
+  // the sandbox has no same-origin access to TeamMate
+  await expect(page.locator('[data-testid="preview-frame"]').first()).toHaveAttribute("sandbox", "allow-scripts");
+  await page.locator("#preview-note").fill("mobile-first");
+  await page.getByRole("button", { name: "Apply note" }).click();
+  await expect(frame.locator(".max-w-sm")).toHaveCount(1, { timeout: 30_000 });
+  await page.getByRole("button", { name: "Invert the mechanic" }).click();
+  await expect(page.getByTestId("compare-pane").locator("iframe")).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('[data-testid="preview-frame"]')).toHaveCount(2);
+  if (process.env.SCREENSHOTS_DIR) await page.screenshot({ path: `${process.env.SCREENSHOTS_DIR}/preview.png`, fullPage: true });
+
   // autosaved: the home page lists it
   await page.goto("/");
   await expect(page.getByTestId("idea-list")).toContainText(ANSWERS[0]);

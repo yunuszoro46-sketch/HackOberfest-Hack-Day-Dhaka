@@ -99,7 +99,7 @@ export async function generateHtml(opts: Omit<GenerateOptions<unknown>, "schema"
     const started = Date.now();
     let res;
     try {
-      res = await provider.generateText({ stage: opts.stage, system: opts.system, user, temperature: opts.temperature, signal: opts.signal, maxOutputTokens: 16_000 });
+      res = await provider.generateText({ stage: opts.stage, system: opts.system, user, temperature: opts.temperature, signal: opts.signal, maxOutputTokens: 8192 });
     } catch (err) {
       logStage({ stage: opts.stage, provider: provider.name, model: provider.model, latencyMs: Date.now() - started, ok: false, attempt, error: (err as Error).message });
       throw err instanceof LlmError ? err : new LlmError((err as Error).message, 502);

@@ -64,7 +64,25 @@ export async function runCouncilStage(
   return all;
 }
 
+export interface PreviewResult {
+  directionId: string;
+  previewHtml: string;
+  screens: { id: string; title: string }[];
+  removed: string[];
+  provider?: string;
+}
+
+export const runPreview = (card: IdeaCard, opts: { directionId?: string; note?: string } = {}) =>
+  callStage<PreviewResult>("preview", { card, ...opts });
+
+/** Puts a generated preview on its direction. */
+export const withPreview = (card: IdeaCard, r: PreviewResult): IdeaCard => ({
+  ...card,
+  directions: card.directions.map((d) => (d.id === r.directionId ? { ...d, previewHtml: r.previewHtml } : d)),
+});
+
 /** Runners for "Regenerate stale"; filled in as stages are added. */
 export const STALE_RUNNERS: Partial<Record<StageId, (card: IdeaCard) => Promise<Partial<IdeaCard>>>> = {
   council: (card) => runCouncilStage(card, () => {}),
+  preview: async (card) => ({ directions: withPreview(card, await runPreview(card)).directions }),
 };

@@ -49,7 +49,7 @@ describe("Stage 2 — Council, competitors, directions", () => {
     vi.stubGlobal("fetch", fetchMock);
     const res = await (await competitors(req("competitors", { card: card() }))).json();
     expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(fetchMock.mock.calls[0][1].headers.authorization).toBe("Bearer test-key");
+    expect((fetchMock.mock.calls[0][1].headers as Record<string, string>).authorization).toBe("Bearer test-key");
     expect(res.patch.competitorSearch.mode).toBe("tavily");
     expect(res.patch.competitors[0]).toMatchObject({ source: "tavily", url: expect.stringMatching(/^https:\/\/roomfinder\.example\//) });
     expect(res.warning).toBeNull();

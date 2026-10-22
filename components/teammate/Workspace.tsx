@@ -16,6 +16,7 @@ import type { StageId } from "@/lib/schema/ideaCard";
 import { summaryTitle } from "@/lib/store/IdeaStore";
 import { CouncilStage } from "./CouncilStage";
 import { InterrogatorStage } from "./InterrogatorStage";
+import { PreviewStage } from "./PreviewStage";
 import { ReadinessBadge } from "./ReadinessBadge";
 import { StageError, StageLoading } from "./StageStatus";
 import { Stepper } from "./Stepper";
@@ -108,7 +109,8 @@ export function Workspace() {
 
           {current === "interrogate" && <InterrogatorStage runner={runner} onDone={() => go("council")} />}
           {current === "council" && <CouncilStage runner={runner} onDone={() => go("preview")} />}
-          {current && current !== "interrogate" && current !== "council" && (
+          {current === "preview" && <PreviewStage runner={runner} onDone={() => go("architecture")} />}
+          {current && !["interrogate", "council", "preview"].includes(current) && (
             <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">{stageLabel(current)} is coming in the next build step.</p>
           )}
         </main>
