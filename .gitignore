@@ -1,42 +1,29 @@
-# Dependencies
-node_modules/
+# dependencies
+/node_modules
 
-# Build output
-dist/
-build/
-client/dist/
+# next.js
+/.next/
+/out/
+/build
+next-env.d.ts
 *.tsbuildinfo
 
-# Test output
-coverage/
-test-results/
-playwright-report/
-blob-report/
-
-# Logs
-*.log
-npm-debug.log*
-
-# Environment files (keep the example)
+# env files (keep the example)
 .env
 .env.*
 !.env.example
 
-# Local SQLite databases (+ WAL/SHM journals)
-server/data/
-*.db
-*.db-wal
-*.db-shm
-*.sqlite
-*.sqlite3
+# vercel
+.vercel
 
-# Files the agents write at runtime (one folder per project)
-server/workspace/
+# test output
+/coverage
+/test-results/
+/playwright-report/
 
-# Editor / OS clutter
+# misc
 .DS_Store
-Thumbs.db
+*.pem
+npm-debug.log*
 .vscode/
 .idea/
-*.swp
-*~
