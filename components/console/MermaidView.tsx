@@ -39,7 +39,7 @@ export function MermaidView({ code }: { code: string }) {
 
   return (
     <div className="min-h-40 min-w-0 overflow-auto rounded-[6px] border border-line bg-[var(--panel-2)] p-3" data-testid="mermaid-view">
-      {error && <pre className="mb-2 whitespace-pre-wrap font-mono text-[12px] text-crit" role="alert">✕ Mermaid did not parse. {error}</pre>}
+      {error && <pre className="mb-2 whitespace-pre-wrap font-mono text-[13px] text-crit" role="alert">✕ Mermaid did not parse. {error}</pre>}
       {svg ? <div className="[&_svg]:mx-auto [&_svg]:max-w-full" dangerouslySetInnerHTML={{ __html: svg }} /> : !error && <div className="skeleton h-32" aria-label="Rendering diagram" />}
     </div>
   );

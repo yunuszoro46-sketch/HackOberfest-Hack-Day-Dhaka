@@ -21,7 +21,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-50">
         {toast && (
           <div key={toast.id} role="status" data-testid="toast"
-            className={cn("panel px-3 py-2 font-mono text-[12px]", toast.tone === "ok" ? "border-ok text-ok" : "border-crit text-crit")}>
+            className={cn("panel px-3 py-2 font-mono text-[13px]", toast.tone === "ok" ? "border-ok text-ok" : "border-crit text-crit")}>
             {toast.tone === "ok" ? "✓ " : "✕ "}{toast.text}
           </div>
         )}

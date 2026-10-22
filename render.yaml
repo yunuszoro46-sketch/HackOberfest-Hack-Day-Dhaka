@@ -1,0 +1,25 @@
+# Render Blueprint: New > Blueprint > pick this repo. Keys marked sync: false are asked for in the dashboard.
+services:
+  - type: web
+    name: teammate
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      - key: LLM_PROVIDER
+        value: gemma
+      - key: GEMMA_MODEL
+        value: gemma-4-26b-a4b-it
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: RATE_LIMIT_PER_10_MIN
+        value: "30"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false

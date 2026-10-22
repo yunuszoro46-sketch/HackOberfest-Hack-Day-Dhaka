@@ -83,7 +83,7 @@ export default function Home() {
               <li>
                 {composing ? (
                   <form className="flex h-full min-h-40 flex-col gap-2 rounded-[8px] border border-dashed border-amber p-4" onSubmit={(e) => { e.preventDefault(); if (raw.trim()) create(); }}>
-                    <label htmlFor="raw" className="label-mono uppercase tracking-[.1em]">Your idea, one paragraph</label>
+                    <label htmlFor="raw" className="label-mono">Your idea, one paragraph</label>
                     <textarea id="raw" ref={rawRef} rows={5} maxLength={4000} className="field flex-1" value={raw} onChange={(e) => setRaw(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Escape") setComposing(false); }}
                       placeholder="e.g. Students waste time walking around looking for a free study room. Show which rooms are free now and let them hold one." />
@@ -96,25 +96,25 @@ export default function Home() {
                   <button type="button" onClick={() => setComposing(true)} data-testid="start-paragraph"
                     className="flex h-full min-h-40 w-full flex-col items-center justify-center gap-1 rounded-[8px] border border-dashed border-line-2 p-4 text-fg-dim hover:border-fg-dim hover:text-fg">
                     <Plus className="size-4" aria-hidden="true" /> Start from a paragraph
-                    <span className="text-[12px] text-fg-faint">Rough is fine. Stage 1 asks the hard questions.</span>
+                    <span className="text-[13px] text-fg-faint">Rough is fine. Stage 1 asks the hard questions.</span>
                   </button>
                 )}
               </li>
               {ideas.map((i) => (
                 <li key={i.id} className="group panel relative flex min-h-40 flex-col gap-2 p-4 hover:border-fg-faint" data-idea={i.title}>
-                  <h3 className="font-display text-[16px] font-semibold leading-snug">
+                  <h3 className="font-sans text-[16px] font-semibold leading-snug">
                     <Link href={`/idea/${i.id}`} className="after:absolute after:inset-0 after:content-[''] focus-visible:outline-none">{i.title}</Link>
                   </h3>
-                  {i.problem && i.problem !== i.title && <p className="line-clamp-2 text-[14px] text-fg-dim">{i.problem}</p>}
+                  {i.problem && i.problem !== i.title && <p className="line-clamp-2 text-[15px] text-fg-dim">{i.problem}</p>}
                   <div className="mt-auto flex items-end justify-between gap-2 pt-2">
-                    <p className="font-mono text-[11px] text-fg-faint">Edited {ago(i.updatedAt)} · Stage {i.stage ?? 1} {STAGE_NAME[(i.stage ?? 1) - 1]}</p>
+                    <p className="font-mono text-[12px] text-fg-faint">Edited {ago(i.updatedAt)} · Stage {i.stage ?? 1} {STAGE_NAME[(i.stage ?? 1) - 1]}</p>
                     <p className="text-right">
                       <span className={cn("tabular font-mono text-[20px] leading-none", i.readiness > 0 ? "text-amber" : "text-fg-faint")}>{i.readiness}</span>
-                      <span className="block font-mono text-[10px] uppercase text-fg-faint">ready</span>
+                      <span className="block font-mono text-[11px] uppercase text-fg-faint">ready</span>
                     </p>
                   </div>
                   {confirmDelete === i.id ? (
-                    <div className="relative z-10 flex flex-wrap items-center gap-2 border-t border-line pt-2 text-[13px]" role="alert">
+                    <div className="relative z-10 flex flex-wrap items-center gap-2 border-t border-line pt-2 text-[14px]" role="alert">
                       <span className="flex-1">Delete from this browser?</span>
                       <Button size="sm" variant="danger" onClick={async () => { await ideaStore().remove(i.id); setConfirmDelete(null); refresh(); }}>Delete</Button>
                       <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(null)}>Keep</Button>
@@ -130,7 +130,7 @@ export default function Home() {
               ))}
             </ul>
           )}
-          {ideas?.length === 0 && <p className="text-[13px] text-fg-faint">Ideas are stored in this browser only. Load the example to see every stage filled in.</p>}
+          {ideas?.length === 0 && <p className="text-[14px] text-fg-faint">Ideas are stored in this browser only. Load the example to see every stage filled in.</p>}
         </section>
       </main>
     </>

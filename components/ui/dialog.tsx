@@ -32,10 +32,10 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<t
   );
 }
 function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
-  return <DialogPrimitive.Title data-slot="dialog-title" className={cn("font-display text-[16px] font-semibold", className)} {...props} />;
+  return <DialogPrimitive.Title data-slot="dialog-title" className={cn("font-sans text-[16px] font-semibold", className)} {...props} />;
 }
 function DialogDescription({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Description>) {
-  return <DialogPrimitive.Description data-slot="dialog-description" className={cn("text-[14px] text-fg-dim", className)} {...props} />;
+  return <DialogPrimitive.Description data-slot="dialog-description" className={cn("text-[15px] text-fg-dim", className)} {...props} />;
 }
 
 export { Dialog, DialogTrigger, DialogClose, DialogContent, DialogTitle, DialogDescription };

@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 export function RunningLine({ label, startedAt }: { label: string; startedAt: number | null }) {
   const secs = useElapsed(startedAt);
   return (
-    <p role="status" aria-live="polite" className="flex items-center gap-2 font-mono text-[12px] text-fg-dim" data-testid="stage-loading">
+    <p role="status" aria-live="polite" className="flex items-center gap-2 font-mono text-[13px] text-fg-dim" data-testid="stage-loading">
       <span className="blink text-amber" aria-hidden="true">●</span>
       <span className="uppercase tracking-[.06em]">{label}…</span>
       <span className="tabular ml-auto text-amber">{secs}s</span>
@@ -39,7 +39,7 @@ export function StageError({ error, onRetry }: { error: StageCallError; onRetry?
           <Collapsible>
             <CollapsibleTrigger asChild><Button size="sm" variant="ghost"><ChevronDown /> Show raw output</Button></CollapsibleTrigger>
             <CollapsibleContent>
-              <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap rounded-[6px] border border-line bg-[var(--bg)] p-2 font-mono text-[12px] text-fg-dim">
+              <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap rounded-[6px] border border-line bg-[var(--bg)] p-2 font-mono text-[13px] text-fg-dim">
                 {`HTTP ${error.status}\n${error.message}${error.detail ? `\n${error.detail}` : ""}${error.raw ? `\n\n--- model output ---\n${error.raw}` : ""}`}
               </pre>
             </CollapsibleContent>

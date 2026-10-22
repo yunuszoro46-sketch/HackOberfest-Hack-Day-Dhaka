@@ -15,7 +15,7 @@ const TONE: Record<ChipTone, string> = {
 /** 11px mono chip. Always a symbol or icon plus text, never a bare coloured dot. */
 export function Chip({ tone = "default", icon, children, className, title }: { tone?: ChipTone; icon?: ReactNode; children: ReactNode; className?: string; title?: string }) {
   return (
-    <span title={title} className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-[4px] border px-[7px] py-[3px] font-mono text-[11px] leading-none [&_svg]:size-3", TONE[tone], className)}>
+    <span title={title} className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-[4px] border px-[7px] py-[3px] font-mono text-[12px] leading-none [&_svg]:size-3", TONE[tone], className)}>
       {icon}
       {children}
     </span>

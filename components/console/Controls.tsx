@@ -12,7 +12,7 @@ const THEME_ITEMS: { id: Theme; label: string; icon: typeof Moon }[] = [
   { id: "paper", label: "Paper", icon: Sun },
 ];
 
-const seg = "inline-flex h-[30px] items-center gap-1.5 px-2.5 font-mono text-[11px] uppercase tracking-[.06em] transition-colors";
+const seg = "inline-flex h-[30px] items-center gap-1.5 px-2.5 font-mono text-[12px] uppercase tracking-[.06em] transition-colors";
 
 /** Console / Dim / Paper / Voice as one segmented group (icon + label, never icon only). */
 export function ConsoleControls({ className }: { className?: string }) {

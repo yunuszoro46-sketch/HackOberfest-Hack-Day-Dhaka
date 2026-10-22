@@ -32,7 +32,7 @@ function PreviewFrame({ direction, width, loading, label }: { direction: Directi
         <span className="flex gap-1" aria-hidden="true">
           <span className="size-2 rounded-full bg-line-2" /><span className="size-2 rounded-full bg-line-2" /><span className="size-2 rounded-full bg-line-2" />
         </span>
-        <span className="min-w-0 truncate font-mono text-[11px] text-fg-dim">
+        <span className="min-w-0 truncate font-mono text-[12px] text-fg-dim">
           {label ? `${label} · ` : ""}{direction.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.preview · {screens.length ? `${screens.length} screens` : "not generated"}
         </span>
       </div>
@@ -44,7 +44,7 @@ function PreviewFrame({ direction, width, loading, label }: { direction: Directi
             className={cn("block w-full", h)} data-testid="preview-frame" data-direction-id={direction.id} />
         </div>
       ) : (
-        <div className={cn("grid place-items-center p-6 text-center text-[14px] text-fg-dim", h)}>
+        <div className={cn("grid place-items-center p-6 text-center text-[15px] text-fg-dim", h)}>
           <p>No preview yet for “{direction.title}”.</p>
         </div>
       )}
@@ -117,13 +117,13 @@ export function PreviewStage({ runner, announce, onDone, onBack }: { runner: Run
       <Collapsible className="panel">
         <CollapsibleTrigger className="ph w-full text-left hover:bg-[var(--panel-2)]" data-testid="archetype-toggle">
           <span className="h2-console">Visual archetype</span>
-          <span className="flex items-center gap-2 font-mono text-[11px] text-fg-dim">
+          <span className="flex items-center gap-2 font-mono text-[12px] text-fg-dim">
             {archetype ? archetype.name : "Neutral kit"}<ChevronDown className="size-3.5" aria-hidden="true" />
           </span>
         </CollapsibleTrigger>
         <CollapsibleContent>
           <PanelBody className="space-y-2">
-            <p className="text-[13px] text-fg-dim">Sets the look of the preview and the visual section of the prompt. Click a selected archetype again to clear it.</p>
+            <p className="text-[14px] text-fg-dim">Sets the look of the preview and the visual section of the prompt. Click a selected archetype again to clear it.</p>
             <VisualArchetypes selectedId={card.archetypeId} onSelect={(id) => update((c) => ({ ...c, archetypeId: id }))} />
           </PanelBody>
         </CollapsibleContent>
@@ -137,7 +137,7 @@ export function PreviewStage({ runner, announce, onDone, onBack }: { runner: Run
             <div className="ml-auto flex rounded-[4px] border border-line-2 p-0.5" role="group" aria-label="Preview width">
               {(["desktop", "mobile"] as const).map((w) => (
                 <button key={w} type="button" aria-pressed={width === w} onClick={() => setWidth(w)}
-                  className={cn("inline-flex h-[30px] items-center gap-1 rounded-[3px] px-2 font-mono text-[11px] uppercase", width === w ? "bg-[var(--panel-2)] text-fg" : "text-fg-dim hover:text-fg")}>
+                  className={cn("inline-flex h-[30px] items-center gap-1 rounded-[3px] px-2 font-mono text-[12px] uppercase", width === w ? "bg-[var(--panel-2)] text-fg" : "text-fg-dim hover:text-fg")}>
                   {w === "desktop" ? <Monitor className="size-3" aria-hidden="true" /> : <Smartphone className="size-3" aria-hidden="true" />}{w}
                 </button>
               ))}
@@ -148,7 +148,7 @@ export function PreviewStage({ runner, announce, onDone, onBack }: { runner: Run
             <Button variant="primary" onClick={() => generate(chosen.id)} disabled={busy} data-testid="generate-preview"><Sparkles /> Generate preview</Button>
           )}
           {removed.length > 0 && (
-            <p className="flex flex-wrap items-center gap-1 font-mono text-[11px] text-fg-faint" data-testid="sanitizer-note">
+            <p className="flex flex-wrap items-center gap-1 font-mono text-[12px] text-fg-faint" data-testid="sanitizer-note">
               <ShieldCheck className="size-3.5" aria-hidden="true" /> The sanitizer removed: {removed.join(", ")}.
             </p>
           )}
@@ -170,7 +170,7 @@ export function PreviewStage({ runner, announce, onDone, onBack }: { runner: Run
             <PanelHeader id="regen-h" title="Regenerate" />
             <PanelBody>
               <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); generate(chosen.id, note.trim() || undefined); }}>
-                <label htmlFor="preview-note" className="label-mono uppercase tracking-[.1em]">Note for the model</label>
+                <label htmlFor="preview-note" className="label-mono">Note for the model</label>
                 <input id="preview-note" className="field" maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. mobile-first, darker, fewer fields" />
                 <Button type="submit" size="sm" disabled={busy} className="w-full" data-testid="regenerate-preview">
                   <Sparkles /> {note.trim() ? "Apply note" : chosen.previewHtml ? "Regenerate" : "Generate"}
@@ -186,7 +186,7 @@ export function PreviewStage({ runner, announce, onDone, onBack }: { runner: Run
                 <ol className="flex flex-wrap gap-1.5" data-testid="screen-list">
                   {screens.map((s, i) => <li key={s.id}><Chip icon={<span className="tabular" aria-hidden="true">{i + 1}</span>}>{s.title}</Chip></li>)}
                 </ol>
-              ) : <p className="text-[13px] text-fg-dim">Generate a preview to list its screens.</p>}
+              ) : <p className="text-[14px] text-fg-dim">Generate a preview to list its screens.</p>}
             </PanelBody>
           </Panel>
 
@@ -194,7 +194,7 @@ export function PreviewStage({ runner, announce, onDone, onBack }: { runner: Run
             <Panel aria-labelledby="compare-h">
               <PanelHeader id="compare-h" title="Compare" />
               <PanelBody className="space-y-1.5">
-                <p className="text-[13px] text-fg-dim">Side by side with another direction.</p>
+                <p className="text-[14px] text-fg-dim">Side by side with another direction.</p>
                 {others.map((d) => (
                   <Button key={d.id} size="sm" variant="ghost" className="w-full justify-start" onClick={() => startCompare(d.id)} disabled={busy}>
                     <Columns2 /> <span className="truncate">{d.title}</span>
@@ -207,7 +207,7 @@ export function PreviewStage({ runner, announce, onDone, onBack }: { runner: Run
           <Panel aria-labelledby="verdict-h" className={cn(approved && "border-ok")}>
             <PanelHeader id="verdict-h" title="Verdict" right={approved ? <Chip tone="ok" icon={<Check />}>approved</Chip> : undefined} />
             <PanelBody className="space-y-2">
-              <p className="text-[13px] text-fg-dim">{approved ? "You approved this direction. Architecture is next." : "Does this flow prove the bet? Approve it, or go back and pick another."}</p>
+              <p className="text-[14px] text-fg-dim">{approved ? "You approved this direction. Architecture is next." : "Does this flow prove the bet? Approve it, or go back and pick another."}</p>
               <Button variant="approve" className="w-full" onClick={approve} disabled={!chosen.previewHtml || approved} data-testid="approve-direction"><Check /> Approve direction</Button>
               <Button variant="ghost" size="sm" className="w-full" onClick={onBack}><ArrowLeft /> Change direction</Button>
             </PanelBody>

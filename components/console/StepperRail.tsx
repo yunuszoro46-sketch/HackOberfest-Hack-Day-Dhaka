@@ -41,7 +41,7 @@ function StageRows({ card, current, onSelect, compact }: { card: IdeaCard; curre
       <li className="shrink-0">
         <Link href="/" className={cn("flex items-center gap-3 rounded-[6px] px-2 py-2 text-fg-dim hover:bg-panel-2 hover:text-fg", compact && "py-1.5")}>
           <span className="inline-flex size-[22px] items-center justify-center text-fg-dim"><LayoutGrid className="size-4" aria-hidden="true" /></span>
-          <span className="font-display text-[14px] font-semibold">Ideas</span>
+          <span className="font-sans text-[15px] font-semibold">Ideas</span>
         </Link>
       </li>
       {STAGE_STEPS.map((s, i) => {
@@ -58,8 +58,8 @@ function StageRows({ card, current, onSelect, compact }: { card: IdeaCard; curre
               )}>
               <HexagonPrimitive state={state}>{i + 1}</HexagonPrimitive>
               <span className="min-w-0">
-                <span className={cn("block whitespace-nowrap font-display text-[14px] font-semibold", s.id === current ? "text-fg" : "text-fg-dim")}>{s.label}</span>
-                {!compact && <span className="block truncate font-mono text-[11px] text-fg-faint">{state === "stale" ? "stale · regenerate" : SUB[s.id]}</span>}
+                <span className={cn("block whitespace-nowrap font-sans text-[15px] font-semibold", s.id === current ? "text-fg" : "text-fg-dim")}>{s.label}</span>
+                {!compact && <span className="block truncate font-mono text-[12px] text-fg-faint">{state === "stale" ? "stale · regenerate" : SUB[s.id]}</span>}
               </span>
             </button>
           </li>
@@ -71,13 +71,13 @@ function StageRows({ card, current, onSelect, compact }: { card: IdeaCard; curre
 
 export function RailFooter({ health }: { health: Health | null }) {
   return (
-    <dl className="space-y-1 font-mono text-[11px] text-fg-dim">
+    <dl className="space-y-1 font-mono text-[12px] text-fg-dim">
       <div className="flex gap-1.5"><dt className="text-fg-faint">Model</dt><dd className="truncate">{health ? (health.provider === "mock" ? "mock replies" : health.model) : "…"}</dd></div>
       <div className="flex items-center gap-1.5">
         <dt className="text-fg-faint">Search</dt>
-        <dd className="flex items-center gap-1">
-          <span className={health?.search.configured ? "text-ok" : "text-crit"} aria-hidden="true">●</span>
-          {health ? (health.search.configured ? `on · ${health.search.provider}` : "off · no live search") : "…"}
+        <dd className="flex min-w-0 items-center gap-1 whitespace-nowrap">
+          <span className={health?.search.configured ? "text-ok" : "text-warn"} aria-hidden="true">{health?.search.configured ? "●" : "○"}</span>
+          {health ? (health.search.configured ? `on · ${health.search.provider}` : "off") : "…"}
         </dd>
       </div>
       {health && !health.providerConfigured && <div className="text-crit">✕ no model key on the server</div>}

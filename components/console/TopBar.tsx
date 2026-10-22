@@ -12,7 +12,7 @@ export function TopBar({ crumbs, right, mobileSheet }: { crumbs: ReactNode[]; ri
   return (
     <header className="sticky top-0 z-20 flex h-[52px] items-center gap-3 border-b border-line px-4 backdrop-blur-[10px]"
       style={{ background: "color-mix(in srgb, var(--bg) 88%, transparent)" }}>
-      <nav aria-label="Breadcrumb" className="min-w-0 flex-1 truncate font-mono text-[11px] uppercase tracking-[.1em] text-fg-dim">
+      <nav aria-label="Breadcrumb" className="min-w-0 flex-1 truncate font-mono text-[12px] uppercase tracking-[.1em] text-fg-dim">
         {crumbs.map((c, i) => (
           <span key={i}>{i > 0 && <span className="px-1.5 text-fg-faint">/</span>}{c}</span>
         ))}

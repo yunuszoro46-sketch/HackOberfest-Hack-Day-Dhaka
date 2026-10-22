@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 // Console buttons (design §4.1). Chakra Petch 600, 13px. One primary per screen.
 // On touch screens an invisible ::after extends the hit area to at least 44px without changing the visual size.
 const buttonVariants = cva(
-  "relative inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[6px] border font-display text-[13px] font-semibold tracking-[.04em] transition-[filter,transform,border-color,background-color] outline-none active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 pointer-coarse:after:absolute pointer-coarse:after:-inset-2 pointer-coarse:after:content-['']",
+  "relative inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[6px] border font-sans text-[15px] font-medium transition-[filter,transform,border-color,background-color] outline-none active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 pointer-coarse:after:absolute pointer-coarse:after:-inset-2 pointer-coarse:after:content-['']",
   {
     variants: {
       variant: {
@@ -17,8 +17,8 @@ const buttonVariants = cva(
         danger: "border-crit bg-[var(--crit-ghost)] text-crit hover:brightness-110",
       },
       size: {
-        default: "h-[38px] px-4",
-        sm: "h-[30px] px-3 text-[12px] [&_svg]:size-3.5",
+        default: "h-[40px] px-4",
+        sm: "h-[34px] px-3 text-[14px] [&_svg]:size-3.5",
         icon: "size-[38px]",
       },
     },

@@ -16,23 +16,23 @@ export function VisualArchetypes({ selectedId, onSelect }: { selectedId: string 
             <span className={cn("absolute right-3 top-3 inline-flex size-[18px] items-center justify-center rounded-[4px] border", on ? "border-amber bg-amber text-amber-ink" : "border-line-2")} aria-hidden="true">
               {on && <Check className="size-3" />}
             </span>
-            <span className="pr-7 font-display text-[15px] font-semibold leading-snug">{a.name}</span>
-            <span className="text-[13px] text-fg-dim">{a.tagline}</span>
-            <span className="font-mono text-[11px] text-fg-faint">Optimal fit: {a.bestFor}</span>
+            <span className="pr-7 font-sans text-[15px] font-semibold leading-snug">{a.name}</span>
+            <span className="text-[14px] text-fg-dim">{a.tagline}</span>
+            <span className="font-mono text-[12px] text-fg-faint">Optimal fit: {a.bestFor}</span>
             <span className="grid grid-cols-4 gap-1">
               {a.palette.map((p) => (
                 <span key={p.hex} className="flex flex-col gap-1">
                   <span className="h-6 rounded-[4px] border border-line" style={{ background: p.hex }} aria-hidden="true" />
-                  <span className="font-mono text-[10px] text-fg-dim">{p.hex}</span>
+                  <span className="font-mono text-[11px] text-fg-dim">{p.hex}</span>
                 </span>
               ))}
             </span>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-2 rounded-[6px] border border-line p-2 font-mono text-[11px]">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-2 rounded-[6px] border border-line p-2 font-mono text-[12px]">
               <dt className="text-fg-faint">Display</dt><dd className="truncate">{a.typography.display}</dd>
               <dt className="text-fg-faint">Prose</dt><dd className="truncate">{a.typography.body}</dd>
               <dt className="text-fg-faint">Numerals</dt><dd className="truncate">{a.typography.data}</dd>
             </dl>
-            <ul className="space-y-0.5 text-[12px] text-fg-dim">
+            <ul className="space-y-0.5 text-[13px] text-fg-dim">
               {a.principles.slice(0, 3).map((p) => <li key={p}>— {p}</li>)}
             </ul>
           </button>

@@ -62,7 +62,18 @@ All keys stay on the server. The browser never sees them. `GET /api/health` repo
 
 ### Deploy
 
-Import the repository into Vercel and set the environment variables; no other configuration is needed. Stage routes set `maxDuration = 60`.
+**Render (blueprint included).** In Render: **New → Blueprint**, pick this repository, and it reads `render.yaml`:
+
+- build: `npm ci --include=dev && npm run build` (dev packages are needed for Tailwind, TypeScript and the contrast check)
+- start: `npm start` (binds `0.0.0.0` on Render's `PORT`)
+- health check: `/api/health`
+- Node `22.22.0` (also pinned in `.node-version`)
+
+Render asks for `GEMINI_API_KEY` (required for real model output) and `TAVILY_API_KEY` (optional, live competitor search). To demo with no keys, set `LLM_PROVIDER=mock`. On the free plan the service sleeps when idle, so the first request after a pause takes about a minute.
+
+Manual setup works too: a Node web service with the same build and start commands and the variables from `.env.example`.
+
+**Vercel.** Import the repository and set the same environment variables; no other configuration is needed. Stage routes set `maxDuration = 60`.
 
 ### Checks
 
@@ -123,8 +134,8 @@ lib/
 The look follows the TeamMate design prompt: a dark instrument console with one amber accent.
 
 - **Three themes** (`console`, `dim`, `paper`) are CSS custom properties on `<html data-theme>`, saved in localStorage and applied before first paint. Tailwind reads them through `@theme` in `app/globals.css`, so components never use raw palette colours.
-- **Two tokens differ from the spec** because the spec values failed the contrast gate: `dim --fg-faint` is `#65615A` (spec `#5E5A52` gave 2.7:1) and `paper --amber` is `#A06000` (spec `#B86E00` gave 3.7:1 for button text).
-- **Fonts are self-hosted** with `@fontsource` (Chakra Petch for display, IBM Plex Sans for body at 15px, JetBrains Mono for data), because Google Fonts was blocked in the build environment.
+- **Readability over the spec's exact values.** Dim's text and accents are brighter than the spec (its secondary text was hard to read), Console's and Paper's secondary greys are a step stronger, and `paper --amber` is `#A06000` (the spec's `#B86E00` gave 3.7:1 for button text). Every pair still passes the contrast gate.
+- **Type.** Body text is 16px IBM Plex Sans; labels, section headings and buttons use the same plain face (no spaced uppercase). Chakra Petch is kept only for page titles, the question and the readiness number; JetBrains Mono for data, chips and code. Fonts are self-hosted with `@fontsource`, because Google Fonts was blocked in the build environment.
 - **Status is never colour alone**: chips carry a symbol (`✓ ! ✕ ⊙ ●`) and text; avatars carry `$`, `U`, `</>`.
 - **Glow and scanlines only on `.lcd-display`** (the signed readout). Loading uses skeletons and a running line, never spinners. No `alert`, `confirm` or `prompt`; confirmations are inline.
 - **Keyboard:** a 2px amber focus ring everywhere; keys 1–5 jump between stages on the rail; Enter picks a focused direction card.

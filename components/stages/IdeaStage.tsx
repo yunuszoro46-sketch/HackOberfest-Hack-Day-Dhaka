@@ -108,7 +108,7 @@ export function IdeaStage({ runner, announce, onDone, savedAt }: { runner: Runne
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && step < 4 && answers[step].trim()) setStep(step + 1);
               }} />
-            <p className="text-[13px] text-fg-faint">{HINTS[step]}</p>
+            <p className="text-[14px] text-fg-faint">{HINTS[step]}</p>
             <div className="flex items-center justify-between gap-2">
               <Button onClick={() => setStep(step - 1)} disabled={step === 0}><ArrowLeft /> Back</Button>
               {step < 4 ? (
@@ -118,7 +118,7 @@ export function IdeaStage({ runner, announce, onDone, savedAt }: { runner: Runne
                   title={answeredAll ? "Ask the model to sharpen the card" : "Answer all five questions first"}><Sparkles /> {built ? "Rebuild card" : "Build card"}</Button>
               )}
             </div>
-            {card.raw && <p className="border-t border-line pt-3 text-[13px] text-fg-dim"><span className="label-mono uppercase">Your paragraph · </span>{card.raw}</p>}
+            {card.raw && <p className="border-t border-line pt-3 text-[14px] text-fg-dim"><span className="label-mono">Your paragraph · </span>{card.raw}</p>}
           </PanelBody>
         </Panel>
 
@@ -157,7 +157,7 @@ const csv = (v: string) => v.split(",").map((s) => s.trim()).filter(Boolean);
 function ConstraintsEditor({ constraints: c, onChange }: { constraints: IdeaCard["constraints"]; onChange: (p: Partial<Constraints>) => void }) {
   const num = (v: string, min: number) => Math.max(min, Number(v) || 0);
   const box = "space-y-1";
-  const lab = "label-mono uppercase tracking-[.1em]";
+  const lab = "label-mono";
   return (
     <div className="rounded-[8px] border border-line p-3" data-field="constraints">
       <p className={cn(lab, "mb-2")}>Constraints</p>

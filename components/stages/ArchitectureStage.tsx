@@ -42,7 +42,7 @@ const BLOCK_SCHEMAS = {
 
 const LIKELIHOOD = { high: { tone: "crit", icon: "▲" }, medium: { tone: "warn", icon: "■" }, low: { tone: "default", icon: "▼" } } as const;
 
-const th = "border-b border-line py-1.5 pr-3 text-left font-normal label-mono uppercase tracking-[.1em]";
+const th = "border-b border-line py-1.5 pr-3 text-left font-normal label-mono";
 const td = "border-b border-line py-1.5 pr-3 align-top";
 
 export function ArchitectureStage({ runner, announce, onDone }: { runner: Runner; announce: Announce; onDone: () => void }) {
@@ -121,8 +121,8 @@ export function ArchitectureStage({ runner, announce, onDone }: { runner: Runner
           <Block title="Component diagram" locked={a.diagramMermaid.locked} actions={actions("diagramMermaid", "Component diagram")}>
             <div className="grid gap-3 lg:grid-cols-2">
               <div className="min-w-0 space-y-1">
-                <label htmlFor="mermaid-src" className="label-mono uppercase tracking-[.1em]">Mermaid source · live</label>
-                <textarea id="mermaid-src" rows={12} className="field font-mono text-[12px] leading-relaxed" value={a.diagramMermaid.value} onChange={(e) => setBlock("diagramMermaid", e.target.value)} />
+                <label htmlFor="mermaid-src" className="label-mono">Mermaid source · live</label>
+                <textarea id="mermaid-src" rows={12} className="field font-mono text-[13px] leading-relaxed" value={a.diagramMermaid.value} onChange={(e) => setBlock("diagramMermaid", e.target.value)} />
               </div>
               <MermaidView code={a.diagramMermaid.value} />
             </div>
@@ -134,15 +134,15 @@ export function ArchitectureStage({ runner, announce, onDone }: { runner: Runner
               <div className="space-y-3">
                 {a.dataModel.value.map((e) => (
                   <div key={e.name} className="min-w-0">
-                    <p className="font-mono text-[13px] font-medium text-amber">{e.name}</p>
+                    <p className="font-mono text-[14px] font-medium text-amber">{e.name}</p>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-[13px]">
+                      <table className="w-full text-[14px]">
                         <tbody>
                           {e.fields.map((f) => <tr key={f.name}><td className={cn(td, "font-mono")}>{f.name}</td><td className={cn(td, "font-mono text-fg-dim")}>{f.type}</td><td className={cn(td, "text-fg-dim")}>{f.note}</td></tr>)}
                         </tbody>
                       </table>
                     </div>
-                    {e.relations.length > 0 && <p className="mt-1 font-mono text-[11px] text-fg-faint">↳ {e.relations.join(" · ")}</p>}
+                    {e.relations.length > 0 && <p className="mt-1 font-mono text-[12px] text-fg-faint">↳ {e.relations.join(" · ")}</p>}
                   </div>
                 ))}
                 <SqlBlock sql={toSql(a.dataModel.value)} />
@@ -152,13 +152,13 @@ export function ArchitectureStage({ runner, announce, onDone }: { runner: Runner
             <Block title="API surface" locked={a.apiSurface.locked} actions={actions("apiSurface", "API surface")}
               json={{ key: "apiSurface", value: a.apiSurface.value, onSave: (v) => setBlock("apiSurface", v as Architecture["apiSurface"]["value"]) }}>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[420px] text-[13px]" data-testid="api-table">
+                <table className="w-full min-w-[420px] text-[14px]" data-testid="api-table">
                   <thead><tr><th className={th}>Method</th><th className={th}>Path</th><th className={th}>Response</th></tr></thead>
                   <tbody>
                     {a.apiSurface.value.map((ep, i) => (
                       <tr key={i}>
-                        <td className={td}><span className="font-mono text-[11px] text-amber">{ep.method}</span></td>
-                        <td className={cn(td, "font-mono")}>{ep.path}{ep.note && <p className="font-sans text-[12px] text-fg-faint">{ep.note}</p>}</td>
+                        <td className={td}><span className="font-mono text-[12px] text-amber">{ep.method}</span></td>
+                        <td className={cn(td, "font-mono")}>{ep.path}{ep.note && <p className="font-sans text-[13px] text-fg-faint">{ep.note}</p>}</td>
                         <td className={cn(td, "text-fg-dim")}>{ep.response}</td>
                       </tr>
                     ))}
@@ -172,31 +172,31 @@ export function ArchitectureStage({ runner, announce, onDone }: { runner: Runner
             <Block title="Services" locked={a.services.locked} actions={actions("services", "Services")}
               json={{ key: "services", value: a.services.value, onSave: (v) => setBlock("services", v as Architecture["services"]["value"]) }}>
               {a.services.value.length ? (
-                <ul className="space-y-2.5 text-[14px]">
-                  {a.services.value.map((s) => <li key={s.name}><span className="font-medium">{s.name}</span> <span className="text-fg-dim">· {s.reason}</span><br /><span className="font-mono text-[11px] text-fg-faint">Free tier: {s.freeTier}</span></li>)}
+                <ul className="space-y-2.5 text-[15px]">
+                  {a.services.value.map((s) => <li key={s.name}><span className="font-medium">{s.name}</span> <span className="text-fg-dim">· {s.reason}</span><br /><span className="font-mono text-[12px] text-fg-faint">Free tier: {s.freeTier}</span></li>)}
                 </ul>
-              ) : <p className="text-[14px] text-fg-dim">None needed.</p>}
+              ) : <p className="text-[15px] text-fg-dim">None needed.</p>}
             </Block>
 
             <Block title="Deployment" locked={a.deployment.locked} actions={actions("deployment", "Deployment")}>
               {a.deployment.value ? (
                 <div className="space-y-3">
-                  <div className="space-y-1"><label htmlFor="dep-target" className="label-mono uppercase tracking-[.1em]">Target</label><input id="dep-target" className="field" value={a.deployment.value.target} onChange={(e) => setBlock("deployment", { ...a.deployment.value!, target: e.target.value })} /></div>
+                  <div className="space-y-1"><label htmlFor="dep-target" className="label-mono">Target</label><input id="dep-target" className="field" value={a.deployment.value.target} onChange={(e) => setBlock("deployment", { ...a.deployment.value!, target: e.target.value })} /></div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1"><label htmlFor="dep-cost" className="label-mono uppercase tracking-[.1em]">USD / month</label><input id="dep-cost" type="number" min={0} className="field tabular font-mono" value={a.deployment.value.estCostPerMonth} onChange={(e) => setBlock("deployment", { ...a.deployment.value!, estCostPerMonth: Math.max(0, Number(e.target.value) || 0) })} /></div>
-                    <div className="space-y-1"><label htmlFor="dep-hours" className="label-mono uppercase tracking-[.1em]">Hours to deploy</label><input id="dep-hours" type="number" min={0} className="field tabular font-mono" value={a.deployment.value.estHoursToFirstDeploy} onChange={(e) => setBlock("deployment", { ...a.deployment.value!, estHoursToFirstDeploy: Math.max(0, Number(e.target.value) || 0) })} /></div>
+                    <div className="space-y-1"><label htmlFor="dep-cost" className="label-mono">USD / month</label><input id="dep-cost" type="number" min={0} className="field tabular font-mono" value={a.deployment.value.estCostPerMonth} onChange={(e) => setBlock("deployment", { ...a.deployment.value!, estCostPerMonth: Math.max(0, Number(e.target.value) || 0) })} /></div>
+                    <div className="space-y-1"><label htmlFor="dep-hours" className="label-mono">Hours to deploy</label><input id="dep-hours" type="number" min={0} className="field tabular font-mono" value={a.deployment.value.estHoursToFirstDeploy} onChange={(e) => setBlock("deployment", { ...a.deployment.value!, estHoursToFirstDeploy: Math.max(0, Number(e.target.value) || 0) })} /></div>
                   </div>
                 </div>
-              ) : <p className="text-[14px] text-fg-dim">No target chosen.</p>}
+              ) : <p className="text-[15px] text-fg-dim">No target chosen.</p>}
             </Block>
 
             <Block title="Risk register" locked={a.risks.locked} actions={actions("risks", "Risk register")}
               json={{ key: "risks", value: a.risks.value, onSave: (v) => setBlock("risks", v as Architecture["risks"]["value"]) }}>
-              <ul className="space-y-2.5 text-[14px]">
+              <ul className="space-y-2.5 text-[15px]">
                 {a.risks.value.map((r, i) => (
                   <li key={i} className="space-y-1">
                     <div className="flex items-start gap-2"><Chip tone={LIKELIHOOD[r.likelihood].tone} icon={<span aria-hidden="true">{LIKELIHOOD[r.likelihood].icon}</span>}>{r.likelihood}</Chip><span>{r.risk}</span></div>
-                    <p className="text-[13px] text-fg-dim">↳ {r.mitigation}</p>
+                    <p className="text-[14px] text-fg-dim">↳ {r.mitigation}</p>
                   </li>
                 ))}
               </ul>
@@ -230,27 +230,27 @@ function Candidates({ card, candidates, chosenId, onChoose, busy }: { card: Idea
               className={cn("panel grid w-full gap-3 p-4 text-left hover:border-fg-faint disabled:cursor-not-allowed lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1.3fr)] lg:items-center", chosen && "border-amber hover:border-amber")}>
               <div className="min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="font-display text-[16px] font-semibold">{c.name}</span>
+                  <span className="font-sans text-[16px] font-semibold">{c.name}</span>
                   {i === 0 && <Chip tone="info" icon={<span aria-hidden="true">★</span>}>Recommended</Chip>}
                   {chosen && <Chip tone="amber" icon={<Check />}>chosen</Chip>}
                 </div>
-                <p className="font-mono text-[11px] text-fg-dim">{c.stack.join(" · ")}</p>
+                <p className="font-mono text-[12px] text-fg-dim">{c.stack.join(" · ")}</p>
               </div>
               <dl className="grid grid-cols-6 gap-1 text-center" aria-label="Scores out of 5">
                 {CRITERIA.map((k) => (
                   <div key={k.key} className="min-w-0">
-                    <dt className="truncate font-mono text-[10px] uppercase text-fg-faint">{k.label}</dt>
+                    <dt className="truncate font-mono text-[11px] uppercase text-fg-faint">{k.label}</dt>
                     <dd className={cn("tabular font-mono text-[15px]", c.scores[k.key] === best[k.key] ? "text-amber" : "text-fg-dim")}>
                       {c.scores[k.key]}{c.scores[k.key] === best[k.key] && <span className="sr-only"> (highest)</span>}
                     </dd>
                   </div>
                 ))}
                 <div className="min-w-0 border-l border-line">
-                  <dt className="font-mono text-[10px] uppercase text-fg-faint">Total</dt>
+                  <dt className="font-mono text-[11px] uppercase text-fg-faint">Total</dt>
                   <dd className={cn("tabular font-mono text-[15px] font-medium", total(c) === bestTotal ? "text-amber" : "text-fg")}>{total(c)}</dd>
                 </div>
               </dl>
-              <div className="min-w-0 text-[13px]">
+              <div className="min-w-0 text-[14px]">
                 <p><span className="text-ok" aria-hidden="true">+ </span><span className="sr-only">Why: </span>{c.why}</p>
                 <p className="text-fg-dim"><span className="text-crit" aria-hidden="true">− </span><span className="sr-only">Why not: </span>{c.whyNot}</p>
               </div>
@@ -287,7 +287,7 @@ function Block({ title, locked, actions, json, children }: {
   };
   return (
     <Panel className={cn(locked && "border-ok")} data-block={title}>
-      <PanelHeader title={<>{title}{locked && <span className="ml-2 font-mono text-[11px] font-normal normal-case tracking-normal text-ok">● LOCKED</span>}</>} right={<>
+      <PanelHeader title={<>{title}{locked && <span className="ml-2 font-mono text-[12px] font-normal normal-case tracking-normal text-ok">● LOCKED</span>}</>} right={<>
         {json && (
           <Button size="sm" variant="ghost" aria-pressed={editing} aria-label={`Edit ${title}`}
             onClick={() => { setDraft(JSON.stringify(json.value, null, 2)); setError(null); setEditing((e) => !e); }}><Pencil /> {editing ? "Cancel" : "Edit"}</Button>
@@ -297,8 +297,8 @@ function Block({ title, locked, actions, json, children }: {
       <PanelBody>
         {editing && json ? (
           <div className="space-y-2">
-            <textarea aria-label={`${title} JSON`} rows={14} className="field font-mono text-[12px]" value={draft} onChange={(e) => setDraft(e.target.value)} />
-            {error && <p role="alert" className="font-mono text-[12px] text-crit">✕ {error}</p>}
+            <textarea aria-label={`${title} JSON`} rows={14} className="field font-mono text-[13px]" value={draft} onChange={(e) => setDraft(e.target.value)} />
+            {error && <p role="alert" className="font-mono text-[13px] text-crit">✕ {error}</p>}
             <Button size="sm" onClick={save}>Save</Button>
           </div>
         ) : children}
@@ -312,10 +312,10 @@ function SqlBlock({ sql }: { sql: string }) {
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <span className="label-mono uppercase tracking-[.1em]">SQL</span>
+        <span className="label-mono">SQL</span>
         <Button size="sm" variant="ghost" onClick={() => navigator.clipboard.writeText(sql).then(() => toast("SQL copied"), () => toast("Clipboard blocked. Select the SQL and copy it.", "crit"))}><Copy /> Copy SQL</Button>
       </div>
-      <pre className="max-h-64 overflow-auto rounded-[6px] border border-line bg-[var(--panel-2)] p-3 font-mono text-[12px]" data-testid="sql">{sql}</pre>
+      <pre className="max-h-64 overflow-auto rounded-[6px] border border-line bg-[var(--panel-2)] p-3 font-mono text-[13px]" data-testid="sql">{sql}</pre>
     </div>
   );
 }

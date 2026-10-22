@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Chip } from "./Chip";
 
 const action =
-  "inline-flex h-[30px] min-w-[64px] items-center justify-center gap-1 rounded-[4px] border border-line-2 bg-panel px-2 font-mono text-[11px] uppercase tracking-[.08em] text-fg-dim hover:border-fg-dim hover:text-fg disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2 pointer-coarse:after:content-['']";
+  "inline-flex h-[30px] min-w-[64px] items-center justify-center gap-1 rounded-[4px] border border-line-2 bg-panel px-2 font-mono text-[12px] uppercase tracking-[.08em] text-fg-dim hover:border-fg-dim hover:text-fg disabled:cursor-not-allowed disabled:opacity-40 pointer-coarse:relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2 pointer-coarse:after:content-['']";
 
 /** LOCK / REGEN pair, used in the field's action column and in panel headers. */
 export function LockActions({
@@ -66,10 +66,10 @@ export function LockableField({
     >
       {regenerating && <span className="progress-line rounded-t-[8px]" aria-hidden="true" />}
       <div className="col-span-2 flex items-center justify-between gap-2">
-        <label htmlFor={`field-${id}`} className="label-mono uppercase tracking-[.1em]">{label}</label>
+        <label htmlFor={`field-${id}`} className="label-mono">{label}</label>
         <span className="flex items-center gap-1.5">
           {stale && <Chip tone="warn" icon={<span aria-hidden="true">!</span>}>stale</Chip>}
-          {locked && <span className="font-mono text-[11px] text-ok">● LOCKED</span>}
+          {locked && <span className="font-mono text-[12px] text-ok">● LOCKED</span>}
         </span>
       </div>
       <textarea
@@ -83,7 +83,7 @@ export function LockableField({
         onChange={(e) => onChange(e.target.value)}
       />
       <LockActions label={label} locked={locked} onToggleLock={onToggleLock} onRegenerate={onRegenerate} regenerating={regenerating} busy={busy} />
-      {hint && <p className="col-span-2 text-[13px] text-fg-faint">{hint}</p>}
+      {hint && <p className="col-span-2 text-[14px] text-fg-faint">{hint}</p>}
     </div>
   );
 }

@@ -38,7 +38,7 @@ export function ProvenanceBadge({ kind, provenance, className }: { kind?: BadgeK
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} data-provenance={k}
-        className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-[4px] border px-[7px] py-[3px] font-mono text-[11px] leading-none hover:brightness-110", s.cls, className)}
+        className={cn("inline-flex items-center gap-1 whitespace-nowrap rounded-[4px] border px-[7px] py-[3px] font-mono text-[12px] leading-none hover:brightness-110", s.cls, className)}
         aria-label={`Provenance: ${k}. Open the provenance legend.`}>
         <span aria-hidden="true">{s.glyph}</span>
         <span>{label(k, provenance ?? undefined)}</span>
@@ -67,7 +67,7 @@ export function ProvenanceLegendModal({ open, onOpenChange }: { open: boolean; o
             {LEGEND.map((l) => (
               <li key={l.kind} className="grid gap-1.5 sm:grid-cols-[190px_1fr] sm:items-start">
                 <span><ProvenanceStatic kind={l.kind} /></span>
-                <span className="text-[14px] text-fg-dim">{l.text}</span>
+                <span className="text-[15px] text-fg-dim">{l.text}</span>
               </li>
             ))}
           </ul>
@@ -81,7 +81,7 @@ export function ProvenanceLegendModal({ open, onOpenChange }: { open: boolean; o
 function ProvenanceStatic({ kind }: { kind: BadgeKind }) {
   const s = STYLE[kind];
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-[4px] border px-[7px] py-[3px] font-mono text-[11px] leading-none", s.cls)}>
+    <span className={cn("inline-flex items-center gap-1 rounded-[4px] border px-[7px] py-[3px] font-mono text-[12px] leading-none", s.cls)}>
       <span aria-hidden="true">{s.glyph}</span>
       <span>{label(kind, kind === "model" ? { model: "gemma-4-26b-a4b-it" } : kind === "search" ? { sources: 5 } : undefined)}</span>
     </span>

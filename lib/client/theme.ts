@@ -19,7 +19,13 @@ export function useTheme() {
   const theme = useSyncExternalStore(
     (cb) => {
       listeners.add(cb);
-      return () => listeners.delete(cb);
+      // Also follow changes made outside setTheme (another tab's boot script, devtools, tests).
+      const mo = new MutationObserver(cb);
+      mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+      return () => {
+        listeners.delete(cb);
+        mo.disconnect();
+      };
     },
     read,
     () => "console" as Theme,

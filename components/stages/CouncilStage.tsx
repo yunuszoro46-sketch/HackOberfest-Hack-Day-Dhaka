@@ -92,7 +92,7 @@ export function CouncilStage({ runner, announce, onDone }: { runner: Runner; ann
 
       {ran && (
         <div className="flex flex-wrap items-center justify-end gap-3">
-          {!card.chosenDirectionId && <span className="text-[14px] text-fg-dim">Pick a direction to continue.</span>}
+          {!card.chosenDirectionId && <span className="text-[15px] text-fg-dim">Pick a direction to continue.</span>}
           <Button variant="primary" onClick={onDone} disabled={!card.chosenDirectionId} data-testid="to-preview">Preview this direction <ArrowRight /></Button>
         </div>
       )}
@@ -108,10 +108,10 @@ function CriticCard({ persona, critique, onChange }: { persona: Persona; critiqu
     <Panel data-persona={persona} aria-labelledby={`p-${persona}`}>
       <div className="ph">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span aria-hidden="true" className={cn("grid size-8 shrink-0 place-items-center rounded-[6px] border font-mono text-[12px] font-medium", a.cls)}>{a.glyph}</span>
+          <span aria-hidden="true" className={cn("grid size-8 shrink-0 place-items-center rounded-[6px] border font-mono text-[13px] font-medium", a.cls)}>{a.glyph}</span>
           <div className="min-w-0">
-            <h3 id={`p-${persona}`} className="font-display text-[14px] font-semibold">{brief.title}</h3>
-            <p className="truncate text-[12px] text-fg-faint">{brief.brief}</p>
+            <h3 id={`p-${persona}`} className="font-sans text-[15px] font-semibold">{brief.title}</h3>
+            <p className="truncate text-[13px] text-fg-faint">{brief.brief}</p>
           </div>
         </div>
         <Button size="sm" variant="ghost" onClick={() => setEditing((e) => !e)} aria-pressed={editing} aria-label={`Edit ${brief.title}`}><Pencil /> {editing ? "Done" : "Edit"}</Button>
@@ -120,8 +120,8 @@ function CriticCard({ persona, critique, onChange }: { persona: Persona; critiqu
         <dl className="space-y-3">
           {CRITIQUE_FIELDS.map((f) => (
             <div key={f.key} className="space-y-1">
-              <dt className="label-mono uppercase tracking-[.1em]">{editing ? <label htmlFor={`${persona}-${f.key}`}>{f.label}</label> : f.label}</dt>
-              <dd className="text-[14px] leading-relaxed">
+              <dt className="label-mono">{editing ? <label htmlFor={`${persona}-${f.key}`}>{f.label}</label> : f.label}</dt>
+              <dd className="text-[15px] leading-relaxed">
                 {editing
                   ? <textarea id={`${persona}-${f.key}`} rows={3} className="field" value={critique[f.key]} onChange={(e) => onChange(f.key, e.target.value)} />
                   : critique[f.key]}
@@ -147,12 +147,12 @@ function Competitors({ card, update, onRerun, busy }: { card: IdeaCard; update: 
         </>} />
         <PanelBody className="space-y-3">
           {card.competitorSearch && card.competitorSearch.queries.length > 0 && (
-            <p className="font-mono text-[12px] text-fg-faint">Searched: {card.competitorSearch.queries.map((q) => `“${q}”`).join(" · ")}</p>
+            <p className="font-mono text-[13px] text-fg-faint">Searched: {card.competitorSearch.queries.map((q) => `“${q}”`).join(" · ")}</p>
           )}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-left text-[14px]" data-testid="competitors">
+            <table className="w-full min-w-[520px] text-left text-[15px]" data-testid="competitors">
               <thead>
-                <tr className="label-mono uppercase tracking-[.1em]">
+                <tr className="label-mono">
                   <th className="border-b border-line py-2 pr-3 font-normal">Name</th>
                   <th className="border-b border-line py-2 pr-3 font-normal">What they solve</th>
                   <th className="border-b border-line py-2 pr-3 font-normal">Source</th>
@@ -165,11 +165,11 @@ function Competitors({ card, update, onRerun, busy }: { card: IdeaCard; update: 
                     <td className="border-b border-line py-2 pr-3">
                       {editing ? <input aria-label="Competitor name" className="field" value={c.name} onChange={(e) => set(i, { name: e.target.value })} /> : <span className="font-medium">{c.name}</span>}
                       {c.url && !editing && (
-                        <a href={c.url} target="_blank" rel="noopener noreferrer" className="mt-0.5 flex max-w-52 items-center gap-1 truncate font-mono text-[11px] text-fg-dim underline hover:text-fg">
+                        <a href={c.url} target="_blank" rel="noopener noreferrer" className="mt-0.5 flex max-w-52 items-center gap-1 truncate font-mono text-[12px] text-fg-dim underline hover:text-fg">
                           <ExternalLink className="size-3 shrink-0" aria-hidden="true" /> {c.url.replace(/^https?:\/\//, "")}
                         </a>
                       )}
-                      {editing && c.source === "user" && <input aria-label="Competitor URL" placeholder="https://… (optional)" className="field mt-1 font-mono text-[12px]" value={c.url} onChange={(e) => set(i, { url: e.target.value })} />}
+                      {editing && c.source === "user" && <input aria-label="Competitor URL" placeholder="https://… (optional)" className="field mt-1 font-mono text-[13px]" value={c.url} onChange={(e) => set(i, { url: e.target.value })} />}
                     </td>
                     <td className="border-b border-line py-2 pr-3 text-fg-dim">
                       {editing ? <textarea aria-label="What they solve" rows={2} className="field" value={c.whatTheySolve} onChange={(e) => set(i, { whatTheySolve: e.target.value })} /> : c.whatTheySolve}
@@ -186,7 +186,7 @@ function Competitors({ card, update, onRerun, busy }: { card: IdeaCard; update: 
               </tbody>
             </table>
           </div>
-          {card.competitors.length === 0 && <p className="text-[14px] text-fg-dim">No competitors found. Add one you know.</p>}
+          {card.competitors.length === 0 && <p className="text-[15px] text-fg-dim">No competitors found. Add one you know.</p>}
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="ghost" onClick={() => setEditing((e) => !e)} aria-pressed={editing}><Pencil /> {editing ? "Done editing" : "Edit table"}</Button>
             <Button size="sm" variant="ghost" disabled={card.competitors.length >= 8}
@@ -202,12 +202,12 @@ function Competitors({ card, update, onRerun, busy }: { card: IdeaCard; update: 
         <PanelHeader id="gap-h" title="Gap summary" />
         <PanelBody>
           {gaps.length ? (
-            <ul className="space-y-2.5 text-[14px]">
+            <ul className="space-y-2.5 text-[15px]">
               {gaps.map((c, i) => (
                 <li key={i} className="flex gap-2"><span className="font-mono text-amber" aria-hidden="true">→</span><span><span className="font-medium">{c.name}</span> <span className="text-fg-dim">leaves: {c.gap}</span></span></li>
               ))}
             </ul>
-          ) : <p className="text-[14px] text-fg-dim">No gaps recorded yet.</p>}
+          ) : <p className="text-[15px] text-fg-dim">No gaps recorded yet.</p>}
         </PanelBody>
       </Panel>
     </section>
@@ -238,7 +238,7 @@ function Directions({ card, update, onRegenerate, busy }: { card: IdeaCard; upda
         {card.provenance.directions && <ProvenanceBadge provenance={card.provenance.directions} />}
         <Button size="sm" variant="ghost" className="ml-auto" onClick={onRegenerate} disabled={busy}><RefreshCw /> Regenerate others</Button>
       </div>
-      <p className="measure text-[14px] text-fg-dim">Each is a different product bet. Your own directions and the one you pick are kept when you regenerate.</p>
+      <p className="measure text-[15px] text-fg-dim">Each is a different product bet. Your own directions and the one you pick are kept when you regenerate.</p>
       <div className="grid gap-4 lg:grid-cols-3" role="group" aria-label="Directions">
         {card.directions.map((d) => {
           const chosen = d.id === card.chosenDirectionId;
@@ -250,25 +250,25 @@ function Directions({ card, update, onRegenerate, busy }: { card: IdeaCard; upda
               onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) update((c) => choose(c, d.id)); }}
               tabIndex={0} aria-label={`${d.title}${chosen ? ", chosen" : ""}. Press Enter to choose.`}>
               <div className="flex items-start justify-between gap-2">
-                <p className="font-mono text-[11px] uppercase tracking-[.12em] text-amber">{d.tag ?? (d.custom ? "YOUR OWN BET" : "DIRECTION")}</p>
+                <p className="font-mono text-[12px] uppercase tracking-[.08em] text-amber">{d.tag ?? (d.custom ? "YOUR OWN BET" : "DIRECTION")}</p>
                 <input type="checkbox" checked={chosen} onChange={() => update((c) => choose(c, d.id))} aria-label={`Choose ${d.title}`}
                   className="size-[18px] shrink-0 cursor-pointer accent-[var(--amber)]" />
               </div>
               {isEditing ? (
                 <div className="space-y-2">
-                  <input aria-label="Direction title" className="field font-display font-semibold" value={d.title} onChange={(e) => set(d.id, { title: e.target.value })} />
+                  <input aria-label="Direction title" className="field font-semibold" value={d.title} onChange={(e) => set(d.id, { title: e.target.value })} />
                   <textarea aria-label="One-liner" rows={2} className="field" placeholder="One line: what is the bet?" value={d.oneLiner} onChange={(e) => set(d.id, { oneLiner: e.target.value })} />
                   <textarea aria-label="Rationale" rows={4} className="field" placeholder="Which critique or competitor gap does it answer?" value={d.rationale} onChange={(e) => set(d.id, { rationale: e.target.value })} />
                 </div>
               ) : (
                 <>
-                  <h3 className="font-display text-[17px] font-semibold leading-snug">{d.title}</h3>
-                  <p className="text-[14px]">{d.oneLiner}</p>
-                  <p className="text-[13px] leading-relaxed text-fg-dim">{d.rationale}</p>
+                  <h3 className="font-sans text-[17px] font-semibold leading-snug">{d.title}</h3>
+                  <p className="text-[15px]">{d.oneLiner}</p>
+                  <p className="text-[14px] leading-relaxed text-fg-dim">{d.rationale}</p>
                 </>
               )}
               {d.citations.length > 0 && (
-                <p className="font-mono text-[11px] text-fg-faint">
+                <p className="font-mono text-[12px] text-fg-faint">
                   <span aria-hidden="true">↳ </span>
                   {d.citations.map((c, i) => (
                     <span key={c}>{i > 0 && " · "}{/^https?:\/\//.test(c) ? <a className="underline hover:text-fg" href={c} target="_blank" rel="noopener noreferrer">{c.replace(/^https?:\/\//, "").slice(0, 40)}</a> : c}</span>
@@ -286,9 +286,9 @@ function Directions({ card, update, onRegenerate, busy }: { card: IdeaCard; upda
         })}
         {canAdd && (
           <button type="button" onClick={addOwn}
-            className="flex min-h-40 flex-col items-center justify-center gap-1 rounded-[8px] border border-dashed border-line-2 p-4 text-[14px] text-fg-dim hover:border-fg-dim hover:text-fg">
+            className="flex min-h-40 flex-col items-center justify-center gap-1 rounded-[8px] border border-dashed border-line-2 p-4 text-[15px] text-fg-dim hover:border-fg-dim hover:text-fg">
             <Plus className="size-4" aria-hidden="true" /> Add my own direction
-            {card.directions.length >= 3 && <span className="text-[12px] text-fg-faint">Replaces the last generated one you did not pick.</span>}
+            {card.directions.length >= 3 && <span className="text-[13px] text-fg-faint">Replaces the last generated one you did not pick.</span>}
           </button>
         )}
       </div>

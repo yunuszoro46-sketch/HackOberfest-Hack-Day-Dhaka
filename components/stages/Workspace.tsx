@@ -100,7 +100,7 @@ export function Workspace() {
             <section className="panel border-warn" data-testid="stale-banner">
               <div className="pb flex flex-wrap items-center gap-3">
                 <AlertTriangle className="size-4 shrink-0 text-warn" aria-hidden="true" />
-                <p className="min-w-0 flex-1 text-[14px]">
+                <p className="min-w-0 flex-1 text-[15px]">
                   <span className="font-medium">Upstream edits made {stale.map(stageLabel).join(", ")} stale.</span>{" "}
                   <span className="text-fg-dim">Locked fields survive regeneration.{stale.includes("prompt") && " The prompt needs a new sign-off."}</span>
                 </p>
@@ -116,7 +116,7 @@ export function Workspace() {
           {stage === "preview" && <PreviewStage runner={runner} announce={announce} onDone={() => go("architecture")} onBack={() => go("council")} />}
           {stage === "architecture" && <ArchitectureStage runner={runner} announce={announce} onDone={() => go("prompt")} />}
           {stage === "prompt" && <PromptStage announce={announce} />}
-          <footer className="pt-6 font-mono text-[11px] text-fg-faint">
+          <footer className="pt-6 font-mono text-[12px] text-fg-faint">
             <Chip tone="default">The Human Has the Key</Chip>
           </footer>
         </main>

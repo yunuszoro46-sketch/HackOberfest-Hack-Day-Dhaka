@@ -158,14 +158,14 @@ export function PromptStage({ announce }: { announce: Announce }) {
           {signed ? (
             <div className="lcd-display lcd-power-on flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[8px] px-4 py-3" data-testid="signed-readout">
               <ShieldCheck className="size-4 text-amber" aria-hidden="true" />
-              <span className="font-mono text-[13px] font-medium uppercase tracking-[.14em] text-amber">Specification signed &amp; unlocked</span>
-              <span className="tabular ml-auto font-mono text-[11px] text-fg-dim">v{version} · signed {new Date(card.signoff!.signedAt).toLocaleString()}</span>
+              <span className="font-mono text-[14px] font-medium uppercase tracking-[.1em] text-amber">Specification signed &amp; unlocked</span>
+              <span className="tabular ml-auto font-mono text-[12px] text-fg-dim">v{version} · signed {new Date(card.signoff!.signedAt).toLocaleString()}</span>
             </div>
           ) : (
             <section className="panel border-warn" role="status" data-testid="resign-banner">
               <div className="pb flex flex-wrap items-center gap-3">
                 <span className="text-warn" aria-hidden="true">!</span>
-                <p className="min-w-0 flex-1 text-[14px]"><span className="font-medium">The plan changed after you signed it.</span> <span className="text-fg-dim">This prompt still describes the old plan. Sign again to recompile.</span></p>
+                <p className="min-w-0 flex-1 text-[15px]"><span className="font-medium">The plan changed after you signed it.</span> <span className="text-fg-dim">This prompt still describes the old plan. Sign again to recompile.</span></p>
                 <Button size="sm" onClick={() => setSignOpen(true)}><KeyRound /> Sign again</Button>
               </div>
             </section>
@@ -175,7 +175,7 @@ export function PromptStage({ announce }: { announce: Announce }) {
             <div className="flex flex-wrap rounded-[4px] border border-line-2 p-0.5" role="radiogroup" aria-label="Prompt target">
               {PROMPT_TARGETS.map((t) => (
                 <button key={t} type="button" role="radio" aria-checked={target === t} data-target={t} onClick={() => switchTarget(t)}
-                  className={cn("h-[30px] rounded-[3px] px-3 font-mono text-[11px] uppercase tracking-[.06em]", target === t ? "bg-[var(--panel-2)] text-amber shadow-[inset_0_-2px_0_var(--amber)]" : "text-fg-dim hover:text-fg")}>
+                  className={cn("h-[30px] rounded-[3px] px-3 font-mono text-[12px] uppercase tracking-[.06em]", target === t ? "bg-[var(--panel-2)] text-amber shadow-[inset_0_-2px_0_var(--amber)]" : "text-fg-dim hover:text-fg")}>
                   {TARGET_LABEL[t]}
                 </button>
               ))}
@@ -186,7 +186,7 @@ export function PromptStage({ announce }: { announce: Announce }) {
           </div>
           {pendingTarget && (
             <div className="panel border-warn" role="alert" data-testid="target-confirm">
-              <div className="pb flex flex-wrap items-center gap-2 text-[14px]">
+              <div className="pb flex flex-wrap items-center gap-2 text-[15px]">
                 <span className="min-w-0 flex-1">Switching to {TARGET_LABEL[pendingTarget]} recompiles the prompt and replaces your edits.</span>
                 <Button size="sm" onClick={() => { update((c) => compile(c, pendingTarget)); setPendingTarget(null); }}>Replace my edits</Button>
                 <Button size="sm" variant="ghost" onClick={() => setPendingTarget(null)}>Keep editing</Button>
@@ -196,10 +196,10 @@ export function PromptStage({ announce }: { announce: Announce }) {
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
             <Panel aria-labelledby="md-h">
-              <PanelHeader id="md-h" title={`PROMPT.md · ${TARGET_LABEL[target]}`} right={<span className="font-mono text-[11px] text-fg-faint">editable</span>} />
+              <PanelHeader id="md-h" title={`PROMPT.md · ${TARGET_LABEL[target]}`} right={<span className="font-mono text-[12px] text-fg-faint">editable</span>} />
               <div ref={editor} id="prompt-md" contentEditable suppressContentEditableWarning role="textbox" aria-multiline="true" aria-labelledby="md-h"
                 spellCheck={false} onBlur={saveEditor} data-testid="prompt-editor"
-                className="h-[560px] overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[12.5px] leading-relaxed outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--amber)]" />
+                className="h-[560px] overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13.5px] leading-relaxed outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--amber)]" />
             </Panel>
 
             <div className="min-w-0 space-y-4">
@@ -215,8 +215,8 @@ export function PromptStage({ announce }: { announce: Announce }) {
                     <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" data-testid="bundle-files">
                       {Object.entries(files).map(([name, content]) => (
                         <li key={name} className="min-w-0 rounded-[6px] border border-line px-2 py-1.5">
-                          <p className="flex items-center gap-1 truncate font-mono text-[12px]"><FileText className="size-3 shrink-0 text-fg-faint" aria-hidden="true" />{name}</p>
-                          <p className="tabular font-mono text-[11px] text-fg-faint">{kb(content)}</p>
+                          <p className="flex items-center gap-1 truncate font-mono text-[13px]"><FileText className="size-3 shrink-0 text-fg-faint" aria-hidden="true" />{name}</p>
+                          <p className="tabular font-mono text-[12px] text-fg-faint">{kb(content)}</p>
                         </li>
                       ))}
                     </ul>
@@ -227,12 +227,12 @@ export function PromptStage({ announce }: { announce: Announce }) {
               <Panel aria-labelledby="v2-h">
                 <PanelHeader id="v2-h" title="Prompt v2 loop" />
                 <PanelBody className="space-y-2">
-                  <p className="text-[13px] text-fg-dim">Builder came back with problems, or you changed the card? Note it here. TeamMate diffs the prompt against the card and writes the next version with a change list.</p>
-                  <label htmlFor="v2-notes" className="label-mono uppercase tracking-[.1em]">What went wrong in the build</label>
+                  <p className="text-[14px] text-fg-dim">Builder came back with problems, or you changed the card? Note it here. TeamMate diffs the prompt against the card and writes the next version with a change list.</p>
+                  <label htmlFor="v2-notes" className="label-mono">What went wrong in the build</label>
                   <textarea id="v2-notes" rows={4} className="field" value={notes} maxLength={2000} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. The agent skipped auth; the booking form needs a time zone." />
                   <Button size="sm" onClick={makeV2} disabled={!signed} title={signed ? undefined : "Sign the current plan first"} data-testid="prompt-v2"><GitCompare /> Diff against card → Prompt v{version + 1}</Button>
                   {lastDiff && (
-                    <p className="font-mono text-[11px] text-fg-dim" data-testid="v2-diff">
+                    <p className="font-mono text-[12px] text-fg-dim" data-testid="v2-diff">
                       {lastDiff.changed.length} updated · {lastDiff.added.length} added · {lastDiff.removed.length} removed
                       {lastDiff.changed.length > 0 && <> · {lastDiff.changed.slice(0, 4).join(", ")}</>}
                     </p>
@@ -254,14 +254,14 @@ function SignoffDialog({ card, open, onOpenChange, onSign }: { card: IdeaCard; o
       <DialogContent data-testid="signoff-dialog" className="max-w-[560px]">
         <p className="eyebrow">Between Architecture and Prompt</p>
         <DialogTitle className="font-display text-[20px] font-semibold">Human Sign-Off Checkpoint</DialogTitle>
-        <DialogDescription className="text-[14px] text-fg-dim">The prompt hands these three decisions to a coding agent. Read them. Signing compiles the prompt; changing any of them later voids the signature.</DialogDescription>
+        <DialogDescription className="text-[15px] text-fg-dim">The prompt hands these three decisions to a coding agent. Read them. Signing compiles the prompt; changing any of them later voids the signature.</DialogDescription>
         <ol className="space-y-3">
           {decisions.map((d, i) => (
             <li key={d.question} className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 rounded-[6px] border border-line p-3">
-              <span className="tabular font-mono text-[13px] text-amber" aria-hidden="true">0{i + 1}</span>
+              <span className="tabular font-mono text-[14px] text-amber" aria-hidden="true">0{i + 1}</span>
               <div className="min-w-0">
-                <p className="label-mono uppercase tracking-[.1em]">{d.question}</p>
-                <p className="text-[14px]">{d.answer}</p>
+                <p className="label-mono">{d.question}</p>
+                <p className="text-[15px]">{d.answer}</p>
               </div>
             </li>
           ))}
