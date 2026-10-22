@@ -140,3 +140,16 @@ describe("LLM adapter", () => {
     expect(extractHtml("```html\n<!doctype html><html><body>x</body></html>\n```")).toBe("<!doctype html><html><body>x</body></html>");
   });
 });
+
+describe("seed example idea", async () => {
+  const { exampleIdea } = await import("@/lib/seed/exampleIdea");
+  it("is a valid, complete card with no stale stages", () => {
+    const card = IdeaCardSchema.parse(exampleIdea());
+    expect(staleStages(card)).toEqual([]);
+    expect(card.chosenDirectionId).toBe("dir-hold");
+    expect(card.directions[0].previewHtml).toContain('data-screen="mine"');
+    expect(card.architecture?.chosenId).toBe("stack-next");
+    // 20 core + 4 locks (3 of 11) + 10 council + 5 competitors without live search + 15 direction + 15 architecture; no prompt yet
+    expect(card.readiness).toBe(69);
+  });
+});

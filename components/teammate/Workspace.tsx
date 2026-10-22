@@ -84,7 +84,7 @@ export function Workspace() {
       </header>
 
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:grid-cols-[220px_minmax(0,1fr)]">
-        <aside className="md:sticky md:top-20 md:self-start">
+        <aside className="min-w-0 md:sticky md:top-20 md:self-start">
           <Stepper card={card} current={current ?? "interrogate"} onSelect={go} />
         </aside>
         <main className="min-w-0 space-y-4">

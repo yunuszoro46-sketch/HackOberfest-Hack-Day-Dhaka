@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Copy, FileText, Plus, Trash2 } from "lucide-react";
+import { Copy, FileText, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { newIdeaCard } from "@/lib/schema/ideaCard";
+import { exampleIdea } from "@/lib/seed/exampleIdea";
 import { ideaStore } from "@/lib/store";
 import type { IdeaSummary } from "@/lib/store/IdeaStore";
 
@@ -29,6 +30,12 @@ export default function Home() {
   const create = async () => {
     setCreating(true);
     const card = newIdeaCard(raw.trim());
+    await ideaStore().save(card);
+    router.push(`/idea/${card.id}`);
+  };
+
+  const loadExample = async () => {
+    const card = exampleIdea();
     await ideaStore().save(card);
     router.push(`/idea/${card.id}`);
   };
@@ -57,6 +64,8 @@ export default function Home() {
             placeholder="e.g. Students on my campus waste time walking around looking for a free study room. I want an app that shows which rooms are free right now and lets them book one…" />
           <div className="flex flex-wrap gap-2">
             <Button onClick={create} disabled={!raw.trim() || creating} data-testid="new-idea"><Plus /> Start with this idea</Button>
+            <Button variant="outline" onClick={loadExample} data-testid="load-example"><Sparkles /> Load the example idea</Button>
+            <span className="self-center text-xs text-muted-foreground">Fully worked example (study rooms), so you can see every stage without waiting on a model.</span>
           </div>
         </CardContent>
       </Card>

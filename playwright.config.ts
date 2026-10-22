@@ -2,17 +2,17 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 3400;
 
-/** Demo-path browser check. Runs the production build with canned (mock) model replies; no keys needed. */
+/** Demo-path browser check on a production build with canned (mock) replies, plus an error-UI check with no key. */
 export default defineConfig({
   testDir: "e2e",
   timeout: 90_000,
   reporter: "list",
   use: { baseURL: `http://localhost:${PORT}`, ...devices["Desktop Chrome"], viewport: { width: 1366, height: 900 } },
   webServer: {
-    command: `npm run build && npx next start -p ${PORT}`,
-    url: `http://localhost:${PORT}/api/health`,
+    command: `node e2e/serve.mjs`,
+    url: `http://localhost:${PORT + 1}/api/health`,
     reuseExistingServer: false,
-    timeout: 240_000,
-    env: { LLM_PROVIDER: "mock", TAVILY_API_KEY: "" },
+    timeout: 300_000,
+    env: { PORT: String(PORT) },
   },
 });
