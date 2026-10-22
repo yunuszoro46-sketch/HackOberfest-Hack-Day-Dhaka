@@ -86,3 +86,23 @@ critique is skipped); Deep mode sets it to 5 (drafts, critique and chair). Durin
 persisted run and displays turn status plus provider/model attribution. Deep web research remains a separate,
 explicit approval after the report is complete. Users may choose a rule-based template report instead of starting
 the council.
+
+
+## Plan review council (planning workspace, step 5)
+
+A separate council reviews the whole plan before the human approves it. This is different from the idea council above, which assesses an idea on its own.
+
+- **Endpoints:**
+  - `POST /api/plans/reviews` with `{ spec, agents?, focus? }` starts a review in the background (202).
+  - `GET /api/plans/reviews/:id` returns its turns and result.
+  - `POST /api/plans/reviews/:id/cancel` stops it.
+  - Reviews are kept in memory (the latest 50) and are lost on restart.
+- **Agents:** `breaker` (Red-team engineer), `skeptic` (Skeptical judge), `builder` (Lead builder) and `user` (User advocate). The default is the first three. Each agent returns a stance, a 0–100 solidity score, pros, cons, and up to four attacks. Every attack has a severity and `holds` (whether the plan as written survives it).
+- **Chair:** returns a summary, solidity, verdict, pros, cons, blockers and required changes.
+- **Budget:** one model call per agent plus the chair, sent through the same provider chain and budgets as the idea council.
+- **Verdict rule:** `approval-ready` needs solidity ≥ 70 and no unresolved high-severity attack. Otherwise it's `needs-changes` at ≥ 45, or `not-ready` below that. If the chair claims more than the rule allows, the verdict is downgraded and a note explains why.
+- **Degradation:**
+  - A failed agent is recorded and skipped.
+  - A failed chair means the agents' opinions are combined without it.
+  - No provider, or no agent answering, falls back to rule-based checks, labelled as such in the result (`method: "rule-based"`, `fallback`).
+- **Safety:** the plan and the leader's focus question go to the model inside `<plan>`/`<focus>` tags as data, not instructions.

@@ -43,7 +43,12 @@ Traditional chat-based AI tools are useful for individual questions, but they do
 ## Interface
 
 The app uses the **TEAM:MATE console design**: an amber-on-black palette with LCD-style readouts and hexagon identity, in **Console** and **Dim (3 a.m.)** themes.
-- `/` is the planning workspace. It takes an idea through assess, explore, plan, approve, and generate a prompt.
+- `/` is the planning workspace. It takes an idea through seven steps: **Idea → Assess → Explore → Plan → Council → Approve → Prompt**.
+  - **Customize in every step.** You can edit the assessment's idea card, scores and risks, build your own visual style, and type your own stack. Features, constraints, non-goals and decisions can be added, renamed, re-prioritised or removed, and the final prompt is editable too. Anything you change is labelled **Edited by you**.
+  - **Council (step 5).** You pick a few agents and can point them at a concern. The agents are a Red-team engineer, a Skeptical judge, a Lead builder and a User advocate. Each one tries to break the plan; then a chair weighs them up. You get pros, cons, every attack (with whether the plan already survives it), blockers, the changes they ask for, a 0–100 solidity score, and a verdict: **approval-ready**, **needs changes** or **not ready**.
+  - **The verdict rule.** Approval-ready needs solidity 70+ and no open high-severity attack, even if the chair says otherwise.
+  - **Without a model.** The council runs labelled rule-based checks instead, such as scope vs. hours left, demo-data fallback, and pitch vs. existing tools.
+  - **Approve (step 6)** shows the verdict. Approving a plan the council hasn't cleared, or one changed since the review, needs a written reason, and that reason goes into the prompt. Editing the plan after approval asks for a new sign-off.
 - `/dashboard` and `/projects/...` hold the supervised AI team projects.
 - `/teammate` explains how TeamMate works.
 - Press **⌘K / Ctrl+K** anywhere to open the command palette.

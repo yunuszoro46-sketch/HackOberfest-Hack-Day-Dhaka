@@ -5,6 +5,7 @@ import type {
 import type { IdeaInput, IdeaReport } from '../../shared/idea-report';
 import type { IdeaResearchResult } from '../../shared/idea-research';
 import type { IdeaRun, IdeaRunDetail } from '../../shared/idea-run';
+import type { PlanReview, PlanSpec, ReviewAgentId } from '../../shared/plan-review';
 
 export interface Health {
   ok: boolean;
@@ -72,4 +73,8 @@ export const api = {
   ideaRun: (id: string) => req<IdeaRunDetail>('GET', `/api/ideas/runs/${id}`),
   approveIdeaRun: (id: string) => req<IdeaRun>('POST', `/api/ideas/runs/${id}/approve`),
   cancelIdeaRun: (id: string) => req<IdeaRun>('POST', `/api/ideas/runs/${id}/cancel`),
+  startPlanReview: (body: { spec: PlanSpec; agents: ReviewAgentId[]; focus?: string | null }) => req<PlanReview>('POST', '/api/plans/reviews', body),
+  planReview: (id: string) => req<PlanReview>('GET', `/api/plans/reviews/${id}`),
+  cancelPlanReview: (id: string) => req<PlanReview>('POST', `/api/plans/reviews/${id}/cancel`),
+  llmStatus: () => req<{ providers: { id: string; model: string; configured: boolean }[] }>('GET', '/api/llm/status'),
 };

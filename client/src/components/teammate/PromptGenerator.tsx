@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import type { PlanReviewResult } from '../../../../shared/plan-review';
 import type { VisualArchetype } from './VisualArchetypes';
 import type { IdeaReport } from '../../../../shared/idea-report';
 import { voiceDispatcher } from '../../utils/speech';
@@ -19,7 +20,11 @@ interface PromptGeneratorProps {
   constraints: string[];
   nonGoals: string[];
   decisions: { question: string; answer: string }[];
+  /** The council's latest review of exactly this plan, if any. */
+  council?: PlanReviewResult | null;
 }
+
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'color';
 
 export function buildPromptText({
   target,
@@ -31,6 +36,7 @@ export function buildPromptText({
   constraints,
   nonGoals,
   decisions,
+  council,
 }: PromptGeneratorProps & { target: ToolTarget }): string {
   const selectedFeatures = features.filter((f) => f.selected);
   const p0 = selectedFeatures.filter((f) => f.priority === 'P0');
@@ -51,7 +57,7 @@ Date: ${new Date().toISOString().split('T')[0]}
 
 ## 1. PROJECT OBJECTIVE & PROBLEM STATEMENT
 Objective: ${idea}
-Feasibility Score: ${report?.overallScore ?? 84}/100 (${report?.verdict ?? 'Build'} Verdict)
+Feasibility Score: ${report ? `${report.overallScore}/100 (${report.verdict} verdict)` : 'not assessed'}
 Target Audience: Hackathon judges, technical developers, and end-users.
 
 ## 2. TECHNICAL ARCHITECTURE & STACK
@@ -65,7 +71,7 @@ Archetype Selected: ${archetype.name}
 Tagline: ${archetype.tagline}
 
 Design Tokens (Inject into root stylesheet):
-${archetype.sampleCssVars}
+${archetype.id === 'custom' ? `:root {\n${archetype.palette.map((c) => `  --${slug(c.name)}: ${c.hex};`).join('\n')}\n}` : archetype.sampleCssVars}
 
 Typography Pairings:
 - Display / Headlines: ${archetype.typography.display}
@@ -82,6 +88,9 @@ ${archetype.principles.map((p) => `- ${p}`).join('\n')}
 ## 4. HUMAN DECISIONS & SPECIFICATION CHOICES
 ${decisions.map((d) => `- Decision: ${d.question}\n  Resolved As: ${d.answer}`).join('\n\n')}
 
+Constraints (always apply):
+${constraints.length ? constraints.map((c) => `- ${c}`).join('\n') : '- None recorded'}
+
 ## 5. FEATURE SPECIFICATION & PRIORITIES
 
 ### Must-Have Core (P0):
@@ -96,7 +105,14 @@ ${p2.length > 0 ? p2.map((f) => `- [ ] ${f.title}`).join('\n') : '- [ ] None spe
 ## 6. EXPLICIT NON-GOALS (DO NOT IMPLEMENT)
 ${nonGoals.map((ng) => `- DO NOT BUILD: ${ng}`).join('\n')}
 
-## 7. RECOMMENDED IMPLEMENTATION SEQUENCE
+${council ? `## COUNCIL REVIEW (before human approval)
+Verdict: ${council.verdict} · Solidity ${council.solidity}/100 · ${council.method === 'council' ? 'AI agent council' : 'rule-based checks, no model'}
+${council.summary}
+
+Attacks the plan must survive:
+${council.breakAttempts.map((b) => `- [${b.holds ? 'HOLDS' : 'OPEN'} · ${b.severity}] ${b.attack} -> ${b.mitigation}`).join('\n') || '- None recorded'}
+${council.requiredChanges.length ? `\nChanges the council asked for:\n${council.requiredChanges.map((c) => `- ${c}`).join('\n')}\n` : ''}
+` : ''}## 7. RECOMMENDED IMPLEMENTATION SEQUENCE
 1. Setup scaffolding with ${techStack.framework} and ${techStack.styling}.
 2. Configure the design tokens and typography pairings in CSS variables.
 3. Implement core domain state models and mock data repositories.
@@ -110,8 +126,12 @@ ${nonGoals.map((ng) => `- DO NOT BUILD: ${ng}`).join('\n')}
 export function PromptGenerator(props: PromptGeneratorProps) {
   const [target, setTarget] = useState<ToolTarget>('cursor');
   const [copied, setCopied] = useState(false);
+  /** The leader's own version of the prompt; null means use the generated one. */
+  const [custom, setCustom] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
 
-  const promptContent = buildPromptText({ ...props, target });
+  const generated = buildPromptText({ ...props, target });
+  const promptContent = custom ?? generated;
 
   const handleCopy = async () => {
     try {
@@ -236,11 +256,35 @@ export function PromptGenerator(props: PromptGeneratorProps) {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-mono text-[var(--text-dim)]">
+          {custom !== null ? 'Your edited prompt. Switching tool target keeps your edits.' : 'Generated from your approved plan.'}
+        </span>
+        <div className="flex gap-2">
+          {custom !== null && (
+            <button type="button" onClick={() => { setCustom(null); setEditing(false); }}
+              className="min-h-[40px] px-3.5 py-2 rounded-lg border border-[var(--line)] text-xs font-mono uppercase text-[var(--text-dim)] hover:text-[var(--text)]">
+              Reset to generated
+            </button>
+          )}
+          <button type="button" aria-expanded={editing} data-testid="edit-prompt"
+            onClick={() => { if (!editing && custom === null) setCustom(generated); setEditing((e) => !e); }}
+            className={`min-h-[40px] px-3.5 py-2 rounded-lg border text-xs font-mono uppercase ${editing ? 'border-[var(--info)] text-[var(--info)] bg-[var(--info)]/10' : 'border-[var(--line)] text-[var(--text-dim)] hover:text-[var(--text)]'}`}>
+            ✎ {editing ? 'Done editing' : 'Edit prompt'}
+          </button>
+        </div>
+      </div>
+
       {/* Structured Code Display with 3A.4 Typography (16/28 line-height) */}
       <div className="rounded-xl border border-[var(--line)] bg-[var(--glass)] p-4 sm:p-6 overflow-hidden">
-        <pre className="text-sm sm:text-base font-mono leading-7 text-[var(--text)] whitespace-pre-wrap max-h-[520px] overflow-y-auto select-all">
-          {promptContent}
-        </pre>
+        {editing ? (
+          <textarea aria-label="Edit the prompt" value={promptContent} onChange={(e) => setCustom(e.target.value)} rows={22}
+            className="w-full bg-transparent text-sm font-mono leading-7 text-[var(--text)] focus:outline-none resize-y" />
+        ) : (
+          <pre className="text-sm sm:text-base font-mono leading-7 text-[var(--text)] whitespace-pre-wrap max-h-[520px] overflow-y-auto select-all" data-testid="prompt-text">
+            {promptContent}
+          </pre>
+        )}
       </div>
     </div>
   );

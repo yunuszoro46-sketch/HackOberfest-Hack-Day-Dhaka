@@ -15,6 +15,8 @@ import { createLlm, describeLlm, type LlmSetup } from './llm/registry';
 import { IdeaRunRepo } from './db/idea-runs';
 import { CouncilService } from './council/service';
 import { DEFAULT_COUNCIL_CALLS } from './council/runner';
+import { PlanReviewService } from './council/plan-review-service';
+import { DEFAULT_REVIEW_AGENTS, REVIEW_AGENT_IDS } from '../../shared/plan-review';
 
 export interface AppOptions {
   dbFile?: string;
@@ -62,6 +64,24 @@ const IdeaRunBody = IdeaBody.extend({
 const IdeaResearchBody = IdeaBody.extend({
   confirmed: z.literal(true, { message: 'Confirm before starting external research' }),
 });
+const line = (max = 300) => z.string().trim().min(1).max(max);
+const PlanReviewBody = z.object({
+  spec: z.object({
+    idea: IdeaBody.extend({ idea: z.string().trim().min(1, 'Idea is required').max(2000) }),
+    ideaCard: z.object({ problem: z.string().trim().max(500), targetUser: z.string().trim().max(300), solution: z.string().trim().max(500) }).optional(),
+    assessmentScore: z.number().int().min(0).max(100).optional(),
+    visualDirection: z.string().trim().max(300).optional(),
+    techStack: z.record(z.string().max(60), z.string().trim().max(200)).default({}),
+    features: z.array(z.object({ title: line(), priority: z.enum(['P0', 'P1', 'P2']) })).max(30).default([]),
+    constraints: z.array(line()).max(20).default([]),
+    nonGoals: z.array(line()).max(20).default([]),
+    decisions: z.array(z.object({ question: line(), answer: line(500) })).max(20).default([]),
+    knownRisks: z.array(line()).max(10).optional(),
+  }),
+  agents: z.array(z.enum(REVIEW_AGENT_IDS)).min(1, 'Pick at least one agent').max(REVIEW_AGENT_IDS.length)
+    .refine((a) => new Set(a).size === a.length, 'Each agent can only sit once').default(DEFAULT_REVIEW_AGENTS),
+  focus: z.string().trim().max(500).optional().nullable(),
+});
 const TaskPatch = z
   .object({
     status: z.enum(TASK_STATUSES).optional(),
@@ -87,6 +107,7 @@ export function createApp(opts: AppOptions = {}) {
   const recovered = orch.boot();
   const council = new CouncilService(new IdeaRunRepo(db), llm.chain);
   const recoveredIdeaRuns = council.boot();
+  const planReviews = new PlanReviewService(llm.chain);
 
   const app = express();
   app.disable('x-powered-by');
@@ -138,6 +159,14 @@ export function createApp(opts: AppOptions = {}) {
   app.get('/api/ideas/runs/:id', (req, res) => { res.json(council.detail(req.params.id)); });
   app.post('/api/ideas/runs/:id/approve', (req, res) => { res.json(council.approve(req.params.id)); });
   app.post('/api/ideas/runs/:id/cancel', (req, res) => { res.json(council.cancel(req.params.id)); });
+
+  // Plan review council: started by the leader's click in the planning workspace; poll for turns and the verdict.
+  app.post('/api/plans/reviews', (req, res) => {
+    const body = parse(PlanReviewBody, req.body);
+    res.status(202).json(planReviews.start(body.spec, body.agents, body.focus?.trim() || null));
+  });
+  app.get('/api/plans/reviews/:id', (req, res) => { res.json(planReviews.get(req.params.id)); });
+  app.post('/api/plans/reviews/:id/cancel', (req, res) => { res.json(planReviews.cancel(req.params.id)); });
 
   app.get('/api/roles', (_req, res) => { res.json(ROLE_LIST); });
 
@@ -256,5 +285,5 @@ export function createApp(opts: AppOptions = {}) {
     res.status(500).json({ error: { code: 'INTERNAL', message: 'Internal server error' } });
   });
 
-  return { app, repo, orch, db: db as DB, recovered, providers, llm, council, recoveredIdeaRuns };
+  return { app, repo, orch, db: db as DB, recovered, providers, llm, council, recoveredIdeaRuns, planReviews };
 }

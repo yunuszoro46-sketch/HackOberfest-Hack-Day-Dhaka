@@ -7,7 +7,8 @@ export type ProvenanceType =
   | 'template'
   | 'inferred'
   | 'source-verified'
-  | 'ran';
+  | 'ran'
+  | 'edited';
 
 interface ProvenanceBadgeProps {
   type: ProvenanceType;
@@ -96,6 +97,18 @@ export function ProvenanceBadge({
           ),
           classes: 'border-[var(--ok)]/60 bg-[var(--ok)]/10 text-[var(--ok)]',
           title: detail || 'Source-verified: claim backed by real verified external documentation/API reference',
+        };
+
+      case 'edited':
+        return {
+          label: 'Edited by you',
+          icon: (
+            <svg className="w-3 h-3 stroke-current fill-none stroke-2 shrink-0" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M11 2l3 3-8 8H3v-3l8-8z" />
+            </svg>
+          ),
+          classes: 'border-[var(--info)]/60 bg-[var(--info)]/10 text-[var(--info)]',
+          title: detail || 'Edited by you: the human changed this value after it was generated',
         };
 
       case 'ran':
@@ -279,7 +292,17 @@ export function ProvenanceLegendModal({ isOpen, onClose }: { isOpen: boolean; on
               <span className="text-xs font-mono text-[var(--ok)]">Solid Teal · Execution Evidence</span>
             </div>
             <p className="text-sm text-[var(--text)]">
-              Reserved for observed execution output and test runs. (TeamMate does not execute user code; appears only in verified historical logs).
+              Reserved for observed execution output and test runs, such as the QA checks a TeamMate project really ran.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-lg border border-[var(--line)] bg-[var(--glass)] space-y-1">
+            <div className="flex items-center gap-2">
+              <ProvenanceBadge type="edited" />
+              <span className="text-xs font-mono text-[var(--info)]">Pencil Glyph · Human Edit</span>
+            </div>
+            <p className="text-sm text-[var(--text)]">
+              You changed this value after it was generated. Your edit wins over the model or the rules.
             </p>
           </div>
         </div>

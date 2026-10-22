@@ -40,6 +40,11 @@ const obj = <S extends Shape>(shape: S): Field<Infer<S>> => ({
   },
 });
 
+const bool: Field<boolean> = { zod: z.boolean(), json: { type: 'boolean' } };
+
+/** Building blocks for other council schemas (e.g. the plan review). */
+export const fields = { str, int, enm, arr, obj, bool };
+
 const score = obj({ criterion: enm(IDEA_CRITERIA), score: int(0, 100), rationale: str(300) });
 const suggestion = obj({
   title: str(80),
