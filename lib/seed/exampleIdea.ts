@@ -3,6 +3,7 @@
 import { sanitizePreview } from "../preview/sanitize";
 import { emptyArchitecture, newIdeaCard, type IdeaCard } from "../schema/ideaCard";
 import { stamp } from "../stale";
+import { logChanges } from "../log";
 import { withReadiness } from "../readiness";
 
 const PREVIEW = `<!doctype html><html><head><title>StudySpot</title><script src="https://cdn.tailwindcss.com"></script></head>
@@ -62,16 +63,22 @@ export function exampleIdea(now = new Date().toISOString()): IdeaCard {
       strongest_objection: "The university will not pay for this, and students will not either; it is a feature of the library's own system.",
       what_would_change_my_mind: "The library agreeing to link it from their homepage during exam week.",
       one_question: "Who keeps it running after the hackathon?",
+      verdict: "approve",
+      solidity: 3,
     },
     user: {
       strongest_objection: "If the app says a room is free and it is not, I stop trusting it after one walk.",
       what_would_change_my_mind: "Seeing it right three times in a row, without logging in.",
       one_question: "What happens when I get there and someone is in the room?",
+      verdict: "reject",
+      solidity: 2,
     },
     engineer: {
       strongest_objection: "Sensor data is noisy and may not be reachable from a hackathon app.",
       what_would_change_my_mind: "A seeded dataset plus a 15-minute hold that does not depend on sensors.",
       one_question: "What is the source of truth when sensors and holds disagree?",
+      verdict: "conditional",
+      solidity: 4,
     },
   };
   c.competitors = [
@@ -81,7 +88,7 @@ export function exampleIdea(now = new Date().toISOString()): IdeaCard {
   ];
   c.competitorSearch = { mode: "none", queries: ["study room availability software", "alternatives to library room booking", "hold a study room app"], ranAt: now };
   c.directions = [
-    { id: "dir-hold", title: "Walk-up hold", oneLiner: "Hold the nearest free room for 15 minutes from a QR link on the door; no account.", rationale: "Answers the Target User's trust problem: a hold is a promise, not a guess, and LibCal's advance booking leaves the walk-up moment open.", citations: ["Target User"], previewHtml: sanitizePreview(PREVIEW).html },
+    { id: "dir-hold", title: "Walk-up hold", oneLiner: "Hold the nearest free room for 15 minutes from a QR link on the door; no account.", rationale: "Answers the Target User's trust problem: a hold is a promise, not a guess, and LibCal's advance booking leaves the walk-up moment open.", citations: ["Target User", "Senior Engineer"], previewHtml: sanitizePreview(PREVIEW).html },
     { id: "dir-signal", title: "Library dashboard only", oneLiner: "A big screen at the library entrance showing free rooms, no phones.", rationale: "Answers the Skeptical Investor: the library owns it and keeps it running.", citations: ["Skeptical Investor"] },
     { id: "dir-crowd", title: "Crowd-confirmed rooms", oneLiner: "Students confirm 'still free' when they pass a room; no sensors needed.", rationale: "Answers the Senior Engineer: removes the sensor dependency.", citations: ["Senior Engineer"] },
   ];
@@ -127,5 +134,7 @@ export function exampleIdea(now = new Date().toISOString()): IdeaCard {
   // The example is hand-written, not model output; every block says so.
   const seed = { kind: "mock" as const, model: "example seed", at: now };
   c.provenance = { interrogate: seed, council: seed, competitors: seed, directions: seed, "preview:dir-hold": seed, architecture: seed, "architecture-details": seed };
+  // A believable decision log for the example: what the builder would have recorded getting here.
+  c.log = logChanges(newIdeaCard(c.raw, now), c, now);
   return withReadiness(c);
 }

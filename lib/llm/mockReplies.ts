@@ -52,16 +52,22 @@ registerMock("council", (req) => {
       strongest_objection: `Nobody pays for "${core}" when a free workaround exists; it is a feature of a bigger platform, not a business.`,
       what_would_change_my_mind: "Ten users who come back three times in the first week without a reminder.",
       one_question: "Who pays, and what would they stop paying for to afford this?",
+      verdict: "reject",
+      solidity: 2,
     },
     user: {
       strongest_objection: `As ${user}, I would try it once, but I will not install another app for this.`,
       what_would_change_my_mind: "If it worked from a link in under ten seconds with no sign-up.",
       one_question: "What makes me open it the second time?",
+      verdict: "conditional",
+      solidity: 3,
     },
     engineer: {
       strongest_objection: "The data the core action depends on is the hard part, and the plan assumes it is clean and live.",
       what_would_change_my_mind: "A seeded dataset and a fallback path that keeps the demo working offline.",
       one_question: "Where does the real-time data come from, and what happens when it is wrong?",
+      verdict: "conditional",
+      solidity: 3,
     },
   });
 });
@@ -143,3 +149,18 @@ registerMock("architecture-details", () =>
     ],
   }),
 );
+
+// Verify: a mock that only answers when a report line mentions the criterion's screen title or path, and quotes it.
+registerMock("verify", (req) => {
+  const report = between(req.user, "report");
+  const lines = report.split("\n").map((l) => l.trim()).filter(Boolean);
+  const crit = [...req.user.matchAll(/^- (AC-\d+): (.*)$/gm)];
+  const results = crit.map(([, id, text]) => {
+    const key = (/Screen "([^"]+)"/.exec(text)?.[1] ?? /`[A-Z]+ ([^`]+)`/.exec(text)?.[1] ?? "").toLowerCase();
+    const line = key ? lines.find((l) => l.toLowerCase().includes(key)) : undefined;
+    if (!line) return { id, status: "unknown", evidence: "" };
+    const status = /fail|error|broken|crash|missing/i.test(line) ? "fail" : /works|pass|done|ok/i.test(line) ? "pass" : "unknown";
+    return { id, status, evidence: status === "unknown" ? "" : line };
+  });
+  return JSON.stringify({ results });
+});

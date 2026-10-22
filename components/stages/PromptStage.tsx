@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Copy, Download, FileText, GitCompare, KeyRound, ShieldCheck, Volume2 } from "lucide-react";
+import { ClipboardCheck, Copy, Download, FileText, GitCompare, KeyRound, ShieldCheck, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Chip } from "@/components/console/Chip";
@@ -15,9 +15,11 @@ import { bundleFiles } from "@/lib/export/bundle";
 import { compilePrompt, projectName } from "@/lib/prompts/compile";
 import { promptV2, type PromptDiff } from "@/lib/prompts/v2";
 import { canSign, isSigned, sign, signoffDecisions } from "@/lib/signoff";
+import { councilVerdict } from "@/lib/verdict";
 import { isStale, stamp } from "@/lib/stale";
 import { PROMPT_TARGETS, type IdeaCard, type PromptTarget } from "@/lib/schema/ideaCard";
 import { cn } from "@/lib/utils";
+import { ReviewPanel } from "./ReviewPanel";
 import type { Announce } from "./Workspace";
 
 const TARGET_LABEL: Record<PromptTarget, string> = { "claude-code": "Claude Code", cursor: "Cursor", lovable: "Lovable", generic: "Generic" };
@@ -49,7 +51,7 @@ function toEditorHtml(md: string): string {
   }).join("");
 }
 
-export function PromptStage({ announce }: { announce: Announce }) {
+export function PromptStage({ announce, onVerify }: { announce: Announce; onVerify?: () => void }) {
   const { card, update } = useIdea();
   const toast = useToast();
   const [signOpen, setSignOpen] = useState(false);
@@ -211,6 +213,9 @@ export function PromptStage({ announce }: { announce: Announce }) {
                     <Button onClick={bundle} disabled={zipping} data-testid="download-bundle"><Download /> {zipping ? "Zipping…" : "Download bundle"}</Button>
                     <Button variant="ghost" onClick={() => voice.read(markdown.replace(/[#*`|>_-]/g, " ").slice(0, 4000))}><Volume2 /> Read aloud</Button>
                   </div>
+                  {onVerify && (
+                    <Button variant="ghost" size="sm" onClick={onVerify} data-testid="to-verify"><ClipboardCheck /> Built it? Check the build</Button>
+                  )}
                   {files && (
                     <ul className="grid grid-cols-2 gap-1.5 sm:grid-cols-3" data-testid="bundle-files">
                       {Object.entries(files).map(([name, content]) => (
@@ -243,12 +248,14 @@ export function PromptStage({ announce }: { announce: Announce }) {
           </div>
         </>
       )}
+      <ReviewPanel card={card} />
     </div>
   );
 }
 
 function SignoffDialog({ card, open, onOpenChange, onSign }: { card: IdeaCard; open: boolean; onOpenChange: (o: boolean) => void; onSign: () => void }) {
   const decisions = signoffDecisions(card);
+  const verdict = councilVerdict(card);
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-testid="signoff-dialog" className="max-w-[560px]">
@@ -266,6 +273,11 @@ function SignoffDialog({ card, open, onOpenChange, onSign }: { card: IdeaCard; o
             </li>
           ))}
         </ol>
+        {verdict && (
+          <p className={cn("rounded-[6px] border px-3 py-2 text-[14px]", verdict.status === "ready" ? "border-ok" : verdict.status === "blocked" ? "border-crit" : "border-warn")} data-testid="signoff-verdict">
+            <span className="label-mono">Council · </span>{verdict.summary}
+          </p>
+        )}
         <div className="flex flex-wrap justify-end gap-2">
           <DialogClose asChild><Button variant="ghost">Not yet</Button></DialogClose>
           <Button variant="primary" onClick={onSign} data-testid="sign-and-compile"><KeyRound /> Sign and compile</Button>

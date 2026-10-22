@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bundleFiles } from "@/lib/export/bundle";
-import { acceptanceCriteria, compilePrompt, envVarFor, workOrder } from "@/lib/prompts/compile";
+import { acceptanceCriteria, acceptanceItems, compilePrompt, envVarFor, workOrder } from "@/lib/prompts/compile";
 import { sanitizePreview } from "@/lib/preview/sanitize";
 import { emptyArchitecture, newIdeaCard, PROMPT_TARGETS, type IdeaCard } from "@/lib/schema/ideaCard";
 
@@ -70,7 +70,11 @@ describe("Prompt compiler", () => {
     expect(ac[4]).toMatch(/^`POST \/api\/bookings` returns Booking \(409 on overlap\)/);
     const wo = workOrder(card);
     expect(wo[0]).toMatch(/^Scaffold the project with Next.js 15, SQLite, Vercel/);
-    expect(wo.at(-1)).toMatch(/^Deploy to Vercel/);
+    expect(wo.at(-2)).toMatch(/^Deploy to Vercel/);
+    expect(wo.at(-3)).toMatch(/tests\/acceptance\.spec\.ts/);
+    expect(wo.at(-1)).toMatch(/^Finish with a build report/);
+    expect(acceptanceItems(card).map((a) => a.id)).toEqual(["AC-01", "AC-02", "AC-03", "AC-04", "AC-05"]);
+    expect(compilePrompt(card, "generic")).toContain("[ ] **AC-04** `GET /api/rooms");
     expect(compilePrompt(card, "generic")).toContain("```sql\ncreate table booking");
   });
 
@@ -83,15 +87,33 @@ describe("Prompt compiler", () => {
 });
 
 describe("Export bundle", () => {
-  it("contains the six files with the right content", () => {
+  it("contains the nine files with the right content", () => {
     const card = fullCard();
     card.prompt = { target: "claude-code", markdown: "My edited prompt", version: 1 };
     const files = bundleFiles(card);
-    expect(Object.keys(files)).toEqual(["PRD.md", "ARCHITECTURE.md", "PROMPT.md", "preview.html", "CLAUDE.md", "idea-card.json"]);
+    expect(Object.keys(files)).toEqual(["PRD.md", "ARCHITECTURE.md", "PROMPT.md", "preview.html", "CLAUDE.md", "ACCEPTANCE.md", "tests/acceptance.spec.ts", "DECISIONS.md", "idea-card.json"]);
     expect(files["PROMPT.md"]).toBe("My edited prompt");
     expect(files["preview.html"]).toContain('data-screen="pick"');
     expect(files["ARCHITECTURE.md"]).toContain("```mermaid\nflowchart LR");
     expect(files["PRD.md"]).toContain("## Out of scope\n- Payments\n- A calendar");
     expect(JSON.parse(files["idea-card.json"]).id).toBe(card.id);
+  });
+});
+
+describe("Acceptance spec", async () => {
+  const { acceptanceSpec, acceptanceMarkdown } = await import("@/lib/export/acceptance");
+  it("has one test per AC id, real checks for endpoints and a TODO for screens", () => {
+    const spec = acceptanceSpec(fullCard());
+    expect(spec.match(/test\("AC-\d\d/g)).toHaveLength(5);
+    expect(spec).toContain('test("AC-01 Screen \\"Home\\""');
+    expect(spec).toContain('request.post("/api/bookings", { data: { unexpected: true } })');
+    expect(spec).toContain("toBeLessThan(500)");
+    expect(spec).toContain("TODO(agent)");
+    expect(acceptanceMarkdown(fullCard())).toContain("- [ ] **AC-05**");
+  });
+  it("turns route parameters into concrete paths", () => {
+    const card = fullCard();
+    card.architecture!.apiSurface.value = [{ method: "DELETE", path: "/api/bookings/:id", request: "", response: "204", note: "" }];
+    expect(acceptanceSpec(card)).toContain('request.delete("/api/bookings/1"');
   });
 });

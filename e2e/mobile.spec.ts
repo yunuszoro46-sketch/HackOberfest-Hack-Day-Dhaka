@@ -18,6 +18,22 @@ for (const width of [390, 400]) {
       await page.waitForTimeout(300);
       await check(stage);
     }
+    // Sign and compile, then Verify with a sample report.
+    await page.getByTestId("compile").click();
+    await page.getByTestId("sign-and-compile").click();
+    await check("prompt (signed)");
+    await page.locator('[data-stage="verify"]:visible').click();
+    await page.getByTestId("sample-report").click();
+    await page.getByTestId("check-build").click();
+    await expect(page.locator("[data-ac]").first()).toBeVisible();
+    await check("verify");
+    // The reviewer's page.
+    await page.locator('[data-stage="prompt"]:visible').click();
+    await page.getByTestId("share-link").click();
+    const url = await page.getByTestId("share-url").inputValue();
+    await page.goto(url);
+    await expect(page.getByTestId("review-page")).toBeVisible();
+    await check("review");
     await page.goto("/");
     await expect(page.getByTestId("idea-list")).toBeVisible();
     await check("home");

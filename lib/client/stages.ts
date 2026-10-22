@@ -16,6 +16,7 @@ export const STAGE_STEPS: { id: StageId; label: string }[] = [
   { id: "preview", label: "Preview" },
   { id: "architecture", label: "Architecture" },
   { id: "prompt", label: "Prompt" },
+  { id: "verify", label: "Verify" },
 ];
 
 export const stageLabel = (s: StageId) => STAGE_STEPS.find((x) => x.id === s)!.label;
@@ -32,6 +33,8 @@ export function stageGate(card: IdeaCard, stage: StageId): string | null {
       return card.chosenDirectionId ? null : "Pick a direction in the Council stage first.";
     case "prompt":
       return card.architecture?.chosenId ? null : "Choose a stack in Architecture first.";
+    case "verify":
+      return card.prompt ? null : "Sign off and compile the prompt first.";
   }
 }
 

@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState, type ReactNode } from "react";
 import type { IdeaCard } from "../schema/ideaCard";
+import { withLog } from "../log";
 import { withReadiness } from "../readiness";
 import { ideaStore } from "../store";
 
@@ -16,7 +17,7 @@ function reducer(state: State, action: Action): State {
       if (!state.card) return state;
       const next = action.fn(state.card);
       if (next === state.card) return state;
-      return { ...state, dirty: true, card: withReadiness({ ...next, updatedAt: new Date().toISOString(), version: state.card.version + 1 }) };
+      return { ...state, dirty: true, card: withReadiness(withLog(state.card, { ...next, updatedAt: new Date().toISOString(), version: state.card.version + 1 })) };
     }
     case "saved":
       return { ...state, dirty: false };

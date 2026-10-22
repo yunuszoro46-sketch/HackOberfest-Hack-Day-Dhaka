@@ -45,6 +45,9 @@ test("demo path", async ({ page, context }) => {
   await expect(page.getByTestId("no-live-search")).toBeVisible(); // no TAVILY_API_KEY in this run
   await expect(page.locator("[data-direction]")).toHaveCount(3);
   await expect(page.locator('[data-direction="Narrow to one moment"]')).toContainText("NARROW THE USER");
+  // The mock investor rejects; no direction is picked yet, so the council blocks.
+  await expect(page.getByTestId("council-verdict")).toHaveAttribute("data-status", "blocked");
+  await expect(page.locator('[data-persona="investor"] [data-verdict="reject"]')).toBeVisible();
   await page.getByRole("checkbox", { name: "Choose Narrow to one moment" }).check();
   await expect(page.getByTestId("to-preview")).toBeEnabled();
 
@@ -126,11 +129,14 @@ test("demo path", async ({ page, context }) => {
   await page.getByTestId("copy-prompt").click();
   await expect(page.getByTestId("toast")).toContainText("Prompt copied");
   expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^# Build prompt for Claude Code/);
-  await expect(page.getByTestId("bundle-files").locator("li")).toHaveCount(6);
+  await expect(page.getByTestId("bundle-files").locator("li")).toHaveCount(9);
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("download-bundle").click()]);
   expect(download.suggestedFilename()).toBe("narrow-to-one-moment-bundle.zip");
   const zip = await JSZip.loadAsync(fs.readFileSync((await download.path())!));
-  expect(Object.keys(zip.files).sort()).toEqual(["ARCHITECTURE.md", "CLAUDE.md", "PRD.md", "PROMPT.md", "idea-card.json", "preview.html"]);
+  const names = Object.keys(zip.files).filter((n) => !zip.files[n].dir).sort();
+  expect(names).toEqual(["ACCEPTANCE.md", "ARCHITECTURE.md", "CLAUDE.md", "DECISIONS.md", "PRD.md", "PROMPT.md", "idea-card.json", "preview.html", "tests/acceptance.spec.ts"]);
+  expect(await zip.file("tests/acceptance.spec.ts")!.async("string")).toContain('test("AC-01');
+  expect(await zip.file("DECISIONS.md")!.async("string")).toContain("Signed the plan: Narrow to one moment");
   expect(await zip.file("PROMPT.md")!.async("string")).toMatch(/^# Build prompt for Claude Code/);
   expect(await zip.file("preview.html")!.async("string")).toContain('data-screen="home"');
   await page.locator("#v2-notes").fill("The agent skipped the 409 on double holds.");
@@ -138,6 +144,50 @@ test("demo path", async ({ page, context }) => {
   await expect(editor).toContainText("## Changes since v1");
   await expect(editor).toContainText("> The agent skipped the 409 on double holds.");
   await expect(page.getByTestId("readiness-value")).toHaveText(/^(8\d|9\d|100)$/);
+
+  // 7. Verify → paste a (labelled sample) build report → check → write the fix prompt
+  await page.getByTestId("to-verify").click();
+  await expect(page.getByTestId("verify-stage")).toBeVisible();
+  await page.getByTestId("sample-report").click();
+  await expect(page.locator("#build-report")).toHaveValue(/AC-01 PASS\nAC-02 FAIL/);
+  await page.getByTestId("check-build").click();
+  const results = page.getByTestId("check-results");
+  await expect(results.locator('[data-ac="AC-01"]')).toHaveAttribute("data-status", "pass", { timeout: 30_000 });
+  await expect(results.locator('[data-ac="AC-02"]')).toHaveAttribute("data-status", "fail");
+  await expect(results.locator('[data-ac="AC-04"]')).toContainText("matched by model"); // endpoint line without an id
+  await page.getByTestId("write-fix").click();
+  await expect(editor).toContainText("## Fix these first (build check of prompt v2)");
+  await expect(editor).toContainText("**AC-02**");
+  await expect(stage(page, "verify")).toHaveAttribute("data-status", "stale"); // the new prompt needs a new check
+
+  // Decision log
+  await page.getByTestId("open-log").click();
+  const log = page.getByTestId("decision-log");
+  await expect(log).toContainText("Checked the build of prompt v2: ");
+  await expect(log).toContainText("Wrote prompt v3");
+  await expect(log).toContainText("Picked direction: Narrow to one moment");
+  await page.keyboard.press("Escape");
+
+  // 8. Share for review → reviewer questions a decision → reply link → review lands in the idea
+  await page.getByTestId("share-link").click();
+  const shareUrl = await page.getByTestId("share-url").inputValue();
+  expect(shareUrl).toMatch(/\/review#card=v1\./);
+  const reviewer = await context.newPage();
+  await reviewer.goto(shareUrl);
+  await expect(reviewer.getByTestId("review-page")).toContainText("Review the plan for Narrow to one moment");
+  await reviewer.locator("#reviewer").fill("Mentor Rahim");
+  await reviewer.locator('[data-decision="1"]').getByRole("radio", { name: "? Question it" }).click();
+  await reviewer.getByLabel(/Comment on: Which stack/).fill("SQLite on Vercel needs Turso; say so.");
+  await reviewer.locator('[data-verdict="changes"]').click();
+  await reviewer.getByTestId("make-reply").click();
+  const replyUrl = await reviewer.locator("#reply-link").inputValue();
+  await reviewer.close();
+  expect(replyUrl).toContain("#review=v1.");
+  await page.goto(replyUrl);
+  await expect(page.getByTestId("incoming-review")).toContainText("Review from Mentor Rahim: approved with changes");
+  await page.getByTestId("add-review").click();
+  await stage(page, "prompt").click();
+  await expect(page.getByTestId("reviews")).toContainText("SQLite on Vercel needs Turso; say so.");
 
   // autosaved: the home page lists it
   await page.goto("/");

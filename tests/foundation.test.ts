@@ -78,7 +78,7 @@ describe("readiness", () => {
   });
 });
 
-const crit = () => ({ strongest_objection: "o", what_would_change_my_mind: "m", one_question: "q" });
+const crit = () => ({ strongest_objection: "o", what_would_change_my_mind: "m", one_question: "q", verdict: "conditional" as const, solidity: 3 });
 
 class MemoryStorage implements StorageLike {
   private m = new Map<string, string>();

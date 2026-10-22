@@ -5,7 +5,7 @@ test.skip(!process.env.SCREENSHOTS, "set SCREENSHOTS=1 to refresh docs/screensho
 
 const DIR = "docs/screenshots";
 
-test("six screens in the console theme", async ({ page }) => {
+test("the screens in the console theme", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.goto("/");
   await page.evaluate(() => localStorage.setItem("teammate:theme", "console"));
@@ -31,4 +31,19 @@ test("six screens in the console theme", async ({ page }) => {
   await expect(page.getByTestId("prompt-editor")).toContainText("# Build prompt");
   await page.waitForTimeout(700);
   await page.screenshot({ path: `${DIR}/6-prompt.png` });
+
+  await page.locator('[data-stage="verify"]:visible').click();
+  await page.getByTestId("sample-report").click();
+  await page.getByTestId("check-build").click();
+  await expect(page.locator("[data-ac]").first()).toBeVisible();
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${DIR}/7-verify.png` });
+
+  await page.locator('[data-stage="prompt"]:visible').click();
+  await page.getByTestId("share-link").click();
+  const url = await page.getByTestId("share-url").inputValue();
+  await page.goto(url);
+  await expect(page.getByTestId("review-page")).toBeVisible();
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: `${DIR}/8-review.png` });
 });

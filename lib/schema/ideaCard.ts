@@ -9,10 +9,17 @@ export type Lockable<T> = { value: T; locked: boolean; generatedAt?: string };
 
 const text = (max = 2000) => z.string().max(max);
 
+export const VERDICTS = ["approve", "conditional", "reject"] as const;
+export type Verdict = (typeof VERDICTS)[number];
+
 export const CritiqueSchema = z.object({
   strongest_objection: text(600),
   what_would_change_my_mind: text(600),
   one_question: text(300),
+  /** Would this critic back the idea as it stands? Defaults keep cards saved before verdicts existed valid. */
+  verdict: z.enum(VERDICTS).default("conditional"),
+  /** How solid the idea is from this critic's angle, 1 (weak) to 5 (solid). */
+  solidity: z.number().int().min(1).max(5).default(3),
 });
 export type Critique = z.infer<typeof CritiqueSchema>;
 
@@ -119,8 +126,50 @@ export const ProvenanceSchema = z.object({
 });
 export type Provenance = z.infer<typeof ProvenanceSchema>;
 
-export const STAGES = ["interrogate", "council", "preview", "architecture", "prompt"] as const;
+export const STAGES = ["interrogate", "council", "preview", "architecture", "prompt", "verify"] as const;
 export type StageId = (typeof STAGES)[number];
+
+export const CHECK_STATUSES = ["pass", "fail", "unknown"] as const;
+export type CheckStatus = (typeof CHECK_STATUSES)[number];
+
+/** One acceptance criterion as judged from a build report. */
+export const CheckResultSchema = z.object({
+  acId: z.string().max(12),
+  criterion: text(600),
+  status: z.enum(CHECK_STATUSES),
+  /** A line quoted from the report; empty when nothing in the report supports the status. */
+  evidence: text(400).default(""),
+  /** Who decided: the report named the id (rules), the model matched it, or the user set it. */
+  by: z.enum(["rules", "model", "you"]),
+});
+export type CheckResult = z.infer<typeof CheckResultSchema>;
+
+export const BuildCheckSchema = z.object({
+  id: z.string().max(60),
+  at: z.string(),
+  /** The prompt version the build was made from. */
+  promptVersion: z.number().int().min(1),
+  report: z.string().max(20_000),
+  results: z.array(CheckResultSchema).max(60),
+  provenance: ProvenanceSchema.optional(),
+});
+export type BuildCheck = z.infer<typeof BuildCheckSchema>;
+
+export const LOG_KINDS = ["stage", "lock", "unlock", "direction", "approve", "stack", "sign", "prompt", "check", "review"] as const;
+export const LogEntrySchema = z.object({ at: z.string(), kind: z.enum(LOG_KINDS), text: text(300) });
+export type LogEntry = z.infer<typeof LogEntrySchema>;
+
+export const ReviewSchema = z.object({
+  id: z.string().max(60),
+  at: z.string(),
+  reviewer: text(80),
+  verdict: z.enum(["approve", "changes", "reject"]),
+  decisions: z.array(z.object({ question: text(200), answer: text(600), stance: z.enum(["agree", "question"]), comment: text(600).default("") })).max(5),
+  note: text(1500).default(""),
+  /** The plan the reviewer saw; differs from the current plan when the card changed after sharing. */
+  planFingerprint: z.string().max(20),
+});
+export type Review = z.infer<typeof ReviewSchema>;
 
 export const IdeaCardSchema = z.object({
   id: z.string().min(1),
@@ -154,6 +203,12 @@ export const IdeaCardSchema = z.object({
   provenance: z.record(z.string(), ProvenanceSchema).default({}),
   /** Human sign-off before compiling: the fingerprint of the plan that was signed. */
   signoff: z.object({ signedAt: z.string(), fingerprint: z.string() }).nullable().default(null),
+  /** Build reports checked against the acceptance criteria, newest last. */
+  buildChecks: z.array(BuildCheckSchema).max(10).default([]),
+  /** Decision log: what the human decided and when, newest last. */
+  log: z.array(LogEntrySchema).max(300).default([]),
+  /** Reviews received through a share link. */
+  reviews: z.array(ReviewSchema).max(20).default([]),
   /**
    * For each stage that has run: a fingerprint of the upstream inputs it ran on. A stage is stale when its
    * stored fingerprint no longer matches the current inputs (see lib/stale.ts).
@@ -194,6 +249,9 @@ export function newIdeaCard(raw: string, now = new Date().toISOString()): IdeaCa
     previewApprovedId: null,
     signoff: null,
     provenance: {},
+    buildChecks: [],
+    log: [],
+    reviews: [],
     stamps: {},
     readiness: 0,
   };

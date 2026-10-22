@@ -3,7 +3,8 @@
 import { toSql } from "../architecture/sql";
 import { archetypeById } from "../archetypes";
 import { findScreens } from "../preview/sanitize";
-import { chosenDirection, PERSONAS, type IdeaCard, type PromptTarget, type Service } from "../schema/ideaCard";
+import { chosenDirection, PERSONAS, type Endpoint, type IdeaCard, type PromptTarget, type Service } from "../schema/ideaCard";
+import { councilVerdict } from "../verdict";
 import { outOfScopeOf } from "./common";
 import { PERSONA_BRIEFS } from "./council";
 
@@ -64,10 +65,27 @@ export function screensOf(card: IdeaCard): { id: string; title: string }[] {
   return html ? findScreens(html) : [];
 }
 
+export interface AcceptanceItem {
+  /** Stable within one compile: AC-01, AC-02, … (screens first, then endpoints). */
+  id: string;
+  text: string;
+  kind: "screen" | "endpoint";
+  screen?: { id: string; title: string };
+  endpoint?: Endpoint;
+}
+
+export function acceptanceItems(card: IdeaCard): AcceptanceItem[] {
+  const screens = screensOf(card).map((s) => ({ kind: "screen" as const, screen: s, text: `Screen "${s.title}" renders with realistic data, has loading, empty and error states, and its primary action works.` }));
+  const endpoints = (card.architecture?.apiSurface.value ?? []).map((e) => ({
+    kind: "endpoint" as const,
+    endpoint: e,
+    text: `\`${e.method} ${e.path}\` returns ${e.response || "the documented response"}${e.note ? ` (${e.note})` : ""}, and rejects invalid input with a 4xx.`,
+  }));
+  return [...screens, ...endpoints].map((x, i) => ({ ...x, id: `AC-${String(i + 1).padStart(2, "0")}` }));
+}
+
 export function acceptanceCriteria(card: IdeaCard): string[] {
-  const screens = screensOf(card).map((s) => `Screen "${s.title}" renders with realistic data, has loading, empty and error states, and its primary action works.`);
-  const endpoints = (card.architecture?.apiSurface.value ?? []).map((e) => `\`${e.method} ${e.path}\` returns ${e.response || "the documented response"}${e.note ? ` (${e.note})` : ""}, and rejects invalid input with a 4xx.`);
-  return [...screens, ...endpoints];
+  return acceptanceItems(card).map((a) => a.text);
 }
 
 export function workOrder(card: IdeaCard): string[] {
@@ -78,8 +96,15 @@ export function workOrder(card: IdeaCard): string[] {
   for (const e of a?.apiSurface.value ?? []) steps.push(`Implement \`${e.method} ${e.path}\` with input validation and a test.`);
   for (const s of screensOf(card)) steps.push(`Build the "${s.title}" screen and wire it to the API.`);
   if (a?.services.value.length) steps.push(`Integrate ${a.services.value.map((s) => s.name).join(", ")} behind server-side env vars.`);
+  if (acceptanceItems(card).length) steps.push("Make `tests/acceptance.spec.ts` pass (Playwright, `baseURL` = the dev server). Each test is named by its AC id; replace its TODO with the real flow, never delete a test.");
   steps.push(`Deploy to ${a?.deployment.value?.target ?? "the chosen host"} and run every acceptance criterion against the live URL.`);
+  steps.push("Finish with a build report: one line per criterion, `AC-01 PASS` or `AC-01 FAIL — reason`, then the test summary. Paste it into TeamMate's Verify stage.");
   return steps;
+}
+
+function verdictLine(card: IdeaCard): string {
+  const v = councilVerdict(card);
+  return v ? `\n\nCouncil verdict: ${v.summary}` : "";
 }
 
 function visualDirection(card: IdeaCard): string {
@@ -107,7 +132,7 @@ function sections(card: IdeaCard): Record<SectionKey, string> {
     problem: `**Problem:** ${or(card.problem.value)}\n\n**Target user:** ${or(card.targetUser.value)}\n\n**Why now:** ${or(card.whyNow.value)}`,
     core: or(card.coreAction.value),
     direction: dir
-      ? [`**${dir.title}** — ${or(dir.oneLiner)}`, "", or(dir.rationale), card.council ? `\nThe council's objections this direction must answer:\n${list(PERSONAS.map((p) => `${PERSONA_BRIEFS[p].title}: ${card.council![p].strongest_objection}`))}` : ""].join("\n")
+      ? [`**${dir.title}** — ${or(dir.oneLiner)}`, "", or(dir.rationale), card.council ? `\nThe council's objections this direction must answer:\n${list(PERSONAS.map((p) => `${PERSONA_BRIEFS[p].title} (${card.council![p].verdict}, solidity ${card.council![p].solidity}/5): ${card.council![p].strongest_objection}`))}${verdictLine(card)}` : ""].join("\n")
       : "_No direction chosen._",
     outOfScope: list(outOfScopeOf(card)),
     stack: stack ? `**${stack.name}**\n${list(stack.stack)}\n\nWhy: ${stack.why}\nWatch: ${stack.whyNot}` : "_No stack chosen._",
@@ -129,7 +154,7 @@ function sections(card: IdeaCard): Record<SectionKey, string> {
     deployment: a?.deployment.value
       ? `Target: **${a.deployment.value.target}** · estimated $${a.deployment.value.estCostPerMonth}/month · about ${a.deployment.value.estHoursToFirstDeploy} hour(s) to the first deploy.`
       : "_No deployment target chosen._",
-    acceptance: list(acceptanceCriteria(card).map((x) => `[ ] ${x}`), "_Generate a preview and an API surface to get criteria._"),
+    acceptance: list(acceptanceItems(card).map((x) => `[ ] **${x.id}** ${x.text}`), "_Generate a preview and an API surface to get criteria._"),
     workOrder: workOrder(card).map((s, i) => `${i + 1}. ${s}`).join("\n"),
     risks: a?.risks.value.length ? list(a.risks.value.map((r) => `**${r.risk}** (${r.likelihood}) — ${r.mitigation}`)) : "_No risks recorded._",
   };

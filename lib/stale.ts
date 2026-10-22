@@ -25,9 +25,12 @@ export function upstreamOf(card: IdeaCard, stage: StageId): unknown {
     case "architecture":
       return { brief, direction };
     case "prompt": {
-      const { prompt: _prompt, stamps: _stamps, readiness: _readiness, updatedAt: _u, version: _v, signoff: _s, compareDirectionId: _c, ...rest } = card;
+      const { prompt: _prompt, stamps: _stamps, readiness: _readiness, updatedAt: _u, version: _v, signoff: _s, compareDirectionId: _c, buildChecks: _b, log: _l, reviews: _r, ...rest } = card;
       return rest;
     }
+    case "verify":
+      // A check belongs to one prompt version; a newer prompt means the build should be checked again.
+      return { promptVersion: card.prompt?.version ?? null, target: card.prompt?.target ?? null };
   }
 }
 

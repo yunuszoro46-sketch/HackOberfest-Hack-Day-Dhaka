@@ -12,7 +12,8 @@ import { applyStage, competitorProvenance, COUNCIL_PART_LABEL, provenanceOf, run
 import type { useStageRun } from "@/lib/client/useStageRun";
 import { PERSONA_BRIEFS } from "@/lib/prompts/council";
 import { stamp } from "@/lib/stale";
-import { PERSONAS, type Competitor, type Critique, type Direction, type IdeaCard, type Persona } from "@/lib/schema/ideaCard";
+import { PERSONAS, VERDICTS, type Competitor, type Critique, type Direction, type IdeaCard, type Persona, type Verdict } from "@/lib/schema/ideaCard";
+import { councilVerdict, type CriticStatus } from "@/lib/verdict";
 import { cn } from "@/lib/utils";
 import type { Announce } from "./Workspace";
 
@@ -25,7 +26,8 @@ const AVATAR: Record<Persona, { glyph: string; cls: string }> = {
   engineer: { glyph: "</>", cls: "border-ok text-ok bg-[var(--ok-ghost)]" },
 };
 
-const CRITIQUE_FIELDS: { key: keyof Critique; label: string }[] = [
+type CritiqueText = "strongest_objection" | "what_would_change_my_mind" | "one_question";
+const CRITIQUE_FIELDS: { key: CritiqueText; label: string }[] = [
   { key: "strongest_objection", label: "Strongest objection" },
   { key: "what_would_change_my_mind", label: "What would change my mind" },
   { key: "one_question", label: "One question for you" },
@@ -59,7 +61,7 @@ export function CouncilStage({ runner, announce, onDone }: { runner: Runner; ann
       announce(full ? `Council finished. ${next.directions.length} directions to pick from.` : "Council part regenerated.");
     });
 
-  const setCritique = (k: Persona, field: keyof Critique, v: string) =>
+  const setCritique = <F extends keyof Critique>(k: Persona, field: F, v: Critique[F]) =>
     update((c) => (c.council ? { ...c, council: { ...c.council, [k]: { ...c.council[k], [field]: v } } } : c));
 
   return (
@@ -78,9 +80,11 @@ export function CouncilStage({ runner, announce, onDone }: { runner: Runner; ann
             <h2 id="crit-h" className="h2-console">Critics</h2>
             {card.provenance.council && <ProvenanceBadge provenance={card.provenance.council} />}
           </div>
+          <VerdictBar card={card} />
           <div className="grid gap-4 lg:grid-cols-3">
             {PERSONAS.map((k) => card.council
-              ? <CriticCard key={k} persona={k} critique={card.council[k]} onChange={(f, v) => setCritique(k, f, v)} />
+              ? <CriticCard key={k} persona={k} critique={card.council[k]} status={councilVerdict(card)?.critics.find((c) => c.persona === k)}
+                  onChange={(f, v) => setCritique(k, f, v)} />
               : <Panel key={k}><PanelBody><Skeleton lines={5} /></PanelBody></Panel>)}
           </div>
         </section>
@@ -100,7 +104,51 @@ export function CouncilStage({ runner, announce, onDone }: { runner: Runner; ann
   );
 }
 
-function CriticCard({ persona, critique, onChange }: { persona: Persona; critique: Critique; onChange: (f: keyof Critique, v: string) => void }) {
+const VERDICT_UI: Record<Verdict, { label: string; icon: string; tone: "ok" | "warn" | "crit" }> = {
+  approve: { label: "Approves", icon: "✓", tone: "ok" },
+  conditional: { label: "Only if answered", icon: "~", tone: "warn" },
+  reject: { label: "Rejects", icon: "✕", tone: "crit" },
+};
+
+/** Five-step solidity meter; the number is always shown next to it. */
+function Solidity({ value }: { value: number }) {
+  return (
+    <span className="inline-flex items-center gap-1.5" title={`Solidity ${value} of 5`}>
+      <span className="flex gap-0.5" aria-hidden="true">
+        {[1, 2, 3, 4, 5].map((i) => <span key={i} className={cn("h-2 w-3 rounded-[2px]", i <= value ? "bg-amber" : "bg-line-2")} />)}
+      </span>
+      <span className="tabular font-mono text-[13px] text-fg-dim">{value}/5</span>
+    </span>
+  );
+}
+
+/** The council's overall call: approval-ready, not yet, or blocked, and by whom. */
+function VerdictBar({ card }: { card: IdeaCard }) {
+  const v = councilVerdict(card);
+  if (!v) return null;
+  const tone = v.status === "ready" ? "border-ok" : v.status === "blocked" ? "border-crit" : "border-warn";
+  const icon = v.status === "ready" ? "✓" : v.status === "blocked" ? "✕" : "~";
+  const color = v.status === "ready" ? "text-ok" : v.status === "blocked" ? "text-crit" : "text-warn";
+  return (
+    <section className={cn("panel", tone)} data-testid="council-verdict" data-status={v.status} aria-live="polite">
+      <div className="pb flex flex-wrap items-center gap-x-4 gap-y-2">
+        <span className={cn("font-mono text-[18px]", color)} aria-hidden="true">{icon}</span>
+        <p className="min-w-0 flex-1 text-[16px]"><span className="font-semibold">{v.summary.split(":")[0]}:</span>{v.summary.slice(v.summary.indexOf(":") + 1)}</p>
+        <Solidity value={Math.round(v.solidity)} />
+      </div>
+      {!card.chosenDirectionId && v.status !== "ready" && (
+        <p className="border-t border-line px-4 py-2 text-[14px] text-fg-dim">A direction that cites a critic answers that critic. Pick one below to see the verdict change.</p>
+      )}
+    </section>
+  );
+}
+
+function CriticCard({ persona, critique, status, onChange }: {
+  persona: Persona;
+  critique: Critique;
+  status?: CriticStatus;
+  onChange: <F extends keyof Critique>(f: F, v: Critique[F]) => void;
+}) {
   const [editing, setEditing] = useState(false);
   const a = AVATAR[persona];
   const brief = PERSONA_BRIEFS[persona];
@@ -115,6 +163,25 @@ function CriticCard({ persona, critique, onChange }: { persona: Persona; critiqu
           </div>
         </div>
         <Button size="sm" variant="ghost" onClick={() => setEditing((e) => !e)} aria-pressed={editing} aria-label={`Edit ${brief.title}`}><Pencil /> {editing ? "Done" : "Edit"}</Button>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5" data-verdict={critique.verdict}>
+        {editing ? (
+          <>
+            <label htmlFor={`${persona}-verdict`} className="label-mono">Verdict</label>
+            <select id={`${persona}-verdict`} className="field w-auto py-1" value={critique.verdict} onChange={(e) => onChange("verdict", e.target.value as Verdict)}>
+              {VERDICTS.map((v) => <option key={v} value={v}>{VERDICT_UI[v].label}</option>)}
+            </select>
+            <label htmlFor={`${persona}-solidity`} className="label-mono">Solidity</label>
+            <input id={`${persona}-solidity`} type="number" min={1} max={5} className="field tabular w-16 py-1 font-mono" value={critique.solidity}
+              onChange={(e) => onChange("solidity", Math.min(5, Math.max(1, Math.round(Number(e.target.value) || 1))))} />
+          </>
+        ) : (
+          <>
+            <Chip tone={VERDICT_UI[critique.verdict].tone} icon={<span aria-hidden="true">{VERDICT_UI[critique.verdict].icon}</span>}>{VERDICT_UI[critique.verdict].label}</Chip>
+            {status?.answered && critique.verdict !== "approve" && <Chip tone="ok" icon={<span aria-hidden="true">↳</span>}>answered by your direction</Chip>}
+            <span className="ml-auto"><Solidity value={critique.solidity} /></span>
+          </>
+        )}
       </div>
       <PanelBody>
         <dl className="space-y-3">

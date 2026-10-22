@@ -16,6 +16,7 @@ const SUB: Record<StageId, string> = {
   preview: "Clickable mockup",
   architecture: "Stack and design",
   prompt: "Sign off · compile",
+  verify: "Check the build",
 };
 
 function hexState(card: IdeaCard, s: StageId, current: StageId): HexState {
@@ -24,11 +25,11 @@ function hexState(card: IdeaCard, s: StageId, current: StageId): HexState {
   return card.stamps[s] !== undefined ? "done" : "default";
 }
 
-/** Rows: Ideas, then the five stages. Keys 1-5 jump to a stage while focus is on the rail. */
+/** Rows: Ideas, then the six stages. Keys 1-6 jump to a stage while focus is on the rail. */
 function StageRows({ card, current, onSelect, compact }: { card: IdeaCard; current: StageId; onSelect: (s: StageId) => void; compact?: boolean }) {
   const onKey = (e: KeyboardEvent) => {
     const n = Number(e.key);
-    if (n >= 1 && n <= 5) {
+    if (n >= 1 && n <= STAGE_STEPS.length) {
       const s = STAGE_STEPS[n - 1].id;
       if (!stageGate(card, s)) {
         e.preventDefault();
@@ -59,7 +60,7 @@ function StageRows({ card, current, onSelect, compact }: { card: IdeaCard; curre
               <HexagonPrimitive state={state}>{i + 1}</HexagonPrimitive>
               <span className="min-w-0">
                 <span className={cn("block whitespace-nowrap font-sans text-[15px] font-semibold", s.id === current ? "text-fg" : "text-fg-dim")}>{s.label}</span>
-                {!compact && <span className="block truncate font-mono text-[12px] text-fg-faint">{state === "stale" ? "stale · regenerate" : SUB[s.id]}</span>}
+                {!compact && <span className="block truncate font-mono text-[12px] text-fg-faint">{state === "stale" ? (s.id === "verify" ? "new prompt · re-check" : "stale · regenerate") : SUB[s.id]}</span>}
               </span>
             </button>
           </li>

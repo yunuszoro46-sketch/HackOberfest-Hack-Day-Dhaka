@@ -8,7 +8,10 @@ Built for **HackOberfest Hack Day Dhaka** for hackathon participants and solo bu
 2. lets a **council** of three critics attack it and **searches for real competitors**,
 3. proposes **2–3 different product directions** and shows a **small clickable preview** of the one you pick,
 4. helps you **choose an architecture** (scored stacks, diagram, data model, API, services, deployment, risks),
-5. **compiles a build prompt** for Claude Code, Cursor, Lovable or your own hands, plus a downloadable bundle.
+5. **compiles a build prompt** for Claude Code, Cursor, Lovable or your own hands, plus a downloadable bundle with acceptance tests,
+6. **verifies the build**: paste the coding agent's report, see each acceptance criterion pass or fail with the line that proves it, and get the next prompt for what is left.
+
+TeamMate is not another coding agent. It is the **supervisor** of one: the human decides and signs, the agent builds, TeamMate checks the result against the signed plan and writes the fix-up prompt. Every decision lands in a **decision log**, and a mentor can review the plan from a **read-only link** without an account.
 
 Everything TeamMate produces is **editable and lockable**. A locked field is passed downstream verbatim and is never regenerated. Every generated block carries a **provenance badge** (model, source-verified search, rule-based, mock, or locked by you), and nothing is compiled until a human **signs off** the three decisions the plan rests on.
 
@@ -20,6 +23,8 @@ Everything TeamMate produces is **editable and lockable**. A locked field is pas
 | **2 · Council.** Three critics, competitors with a gap summary, directions. | **3 · Preview.** A sandboxed clickable mockup and a verdict. |
 | ![Stage 4, Architecture](docs/screenshots/5-architecture.png) | ![Stage 5, Prompt](docs/screenshots/6-prompt.png) |
 | **4 · Architecture.** Scored stacks; lockable diagram, data model, API. | **5 · Prompt.** Signed, compiled, exported; a v2 loop for rework. |
+| ![Stage 6, Verify](docs/screenshots/7-verify.png) | ![Read-only review](docs/screenshots/8-review.png) |
+| **6 · Verify.** Each criterion pass/fail with evidence; one click to the fix prompt. | **Review link.** A mentor reviews the plan read-only and replies with a link. |
 
 Screenshots are from the example idea in the `console` theme (`npm run screenshots`). They were taken in a sandbox that blocks the Tailwind CDN, so the preview frame shows unstyled HTML; in a normal browser it is styled.
 
@@ -27,11 +32,13 @@ Screenshots are from the example idea in the `console` theme (`npm run screensho
 
 1. Home → **New idea** → paste a paragraph. To skip waiting on the model, click **Load example** instead.
 2. Answer the five questions; the card fills in as you go. **Build card**, then **lock** "Core action".
-3. **Run Council**: three critiques, a competitor table (with real links when `TAVILY_API_KEY` is set) with a gap summary, and three direction cards. Tick one.
+3. **Run Council**: three critiques, each with a verdict (approves, only if answered, rejects) and a 1–5 solidity score; an overall line says whether the idea is **approval-ready** or who blocks it. A competitor table (with real links when `TAVILY_API_KEY` is set) with a gap summary, and three direction cards. Tick one: a direction that cites a critic answers that critic, and the verdict updates.
 4. **Preview this direction**: click through the screens, regenerate with the note "mobile-first", compare another direction, then **Approve direction**.
 5. **Architecture** → choose the recommended stack: the diagram, data model with SQL, and API table appear.
-6. **Sign off and compile** → the **Human Sign-Off Checkpoint** lists the product bet, the stack and what is out of scope → **Sign and compile** → toggle the target → **Copy prompt** → **Download bundle** (PRD.md, ARCHITECTURE.md, PROMPT.md, preview.html, CLAUDE.md, idea-card.json).
-7. Optional: write what went wrong in a build and click **Diff against card → Prompt v2** for a new version with a change list.
+6. **Sign off and compile** → the **Human Sign-Off Checkpoint** lists the product bet, the stack and what is out of scope (plus the council verdict) → **Sign and compile** → toggle the target → **Copy prompt** → **Download bundle**: PRD.md, ARCHITECTURE.md, PROMPT.md, preview.html, CLAUDE.md, ACCEPTANCE.md, `tests/acceptance.spec.ts` (one Playwright test per AC id), DECISIONS.md and idea-card.json.
+7. Give the prompt to the coding agent. Its work order ends with a report: one line per criterion, `AC-01 PASS` or `AC-01 FAIL — reason`.
+8. **Verify**: paste that report (or **Paste a sample report** to try it) → **Check the build**. Lines naming an AC id decide first; a model matches the rest and must quote the report, or the criterion stays "not confirmed". → **Write prompt v3 for these**: the next prompt leads with "Fix these first".
+9. **Log** (top bar) shows every decision. **Share for review** (Prompt stage) makes a read-only link; the reviewer agrees or questions each decision and sends back a reply link that adds their review to the idea.
 
 The top-right **Build readiness** score (0–100) rises as you go: lock 3+ fields 15, council run 20, direction picked 15, preview approved 20, stack chosen 15, prompt compiled 15. A stale stage counts half. Hover it to see each contributor.
 
@@ -81,7 +88,7 @@ Manual setup works too: a Node web service with the same build and start command
 npm run typecheck
 npm run test         # Vitest: schemas, readiness, staleness, store, adapter retry, every stage route, sanitizer, compiler, bundle
 npm run build        # runs npm run contrast first: fails if any theme pair is below WCAG AA
-npm run test:e2e     # Playwright: the full demo path, the error UI with no key, and 390px / 400px no-horizontal-scroll passes
+npm run test:e2e     # Playwright: idea to verified build to review, the error UI with no key, 390/400px no-horizontal-scroll
 npm run screenshots  # refreshes docs/screenshots/
 ```
 
@@ -94,8 +101,9 @@ app/
   page.tsx                       Ideas home: card grid, start from a paragraph, example, duplicate, inline delete
   idea/[id]/page.tsx             The workspace: stepper rail, top bar, the five stages
   api/health/route.ts            Provider + search status
-  api/stage/<name>/route.ts      interrogate · council · competitors · directions · preview · architecture
-components/stages/               Workspace shell and the five stage screens
+  review/page.tsx                Read-only review page for a shared plan (data comes from the link fragment)
+  api/stage/<name>/route.ts      interrogate · council · competitors · directions · preview · architecture · verify
+components/stages/               Workspace shell, the six stage screens, the share/review panel
 components/console/              Design-system pieces: Panel, Chip, LockableField, ProvenanceBadge, StepperRail, TopBar,
                                  ReadinessMeter, StageStatus (running line, skeleton, error, empty), Toast, MermaidView,
                                  hexagon identity, segment displays, visual archetypes
@@ -106,6 +114,10 @@ lib/
   stale.ts                       Stage fingerprints → "stale" banners and "Regenerate stale"
   readiness.ts                   Build-Readiness score, computed (never from a model)
   signoff.ts                     Human sign-off: the three decisions and the plan fingerprint the signature covers
+  verdict.ts                     Council verdict: approval-ready, not yet, or blocked (computed, never from a model)
+  verify.ts                      Build-report checking: rules for AC ids, model only for the rest, quotes required
+  log.ts                         Decision log, derived by diffing the card on every change; DECISIONS.md
+  share.ts                       Share and reply links: compressed, validated, carried in the URL fragment
   archetypes.ts                  Visual archetypes for the preview and the prompt's visual section
   store/                         IdeaStore interface, localStorage implementation, Supabase stub
   llm/adapter.ts                 generate() / generateHtml(): Zod validation, one retry with the error, then 422
@@ -115,6 +127,8 @@ lib/
   preview/sanitize.ts            Preview HTML sanitizer
   search/tavily.ts               Competitor search
   export/bundle.ts               Files in the download bundle
+  export/acceptance.ts           ACCEPTANCE.md and tests/acceptance.spec.ts from the acceptance criteria
+  prompts/fix.ts                 The fix-up prompt written from a build check
   seed/exampleIdea.ts            The example idea
 ```
 
@@ -141,6 +155,14 @@ The look follows the TeamMate design prompt: a dark instrument console with one 
 - **Keyboard:** a 2px amber focus ring everywhere; keys 1–5 jump between stages on the rail; Enter picks a focused direction card.
 - **Theme and Voice controls** live in the top bar (and in the Console sheet below 1024px). Voice reads stage results aloud when on; **Read aloud** on the prompt works regardless.
 
+## Supervision features
+
+- **Council verdict.** Each critic returns a verdict and a solidity score with their critique. The overall line is computed: blocked while any critic rejects and no chosen direction answers them; approval-ready when at least two critics back it and average solidity is 3 or more.
+- **Acceptance tests in the bundle.** Criteria get ids (AC-01 …). `tests/acceptance.spec.ts` has one Playwright test per id: endpoint tests run as written (valid route, invalid input rejected with a 4xx, never a 5xx); screen tests carry a TODO the agent fills in. The prompt says never to delete a test.
+- **Verify (stage 6).** A report is judged per criterion with quoted evidence. Rules read lines that name an id (also test-runner lines such as `✘ … AC-02`); only the remaining criteria go to the model, and a model verdict without a quote that really appears in the report is discarded. Without a model key, rule results still work and the rest stay "not confirmed". You can override any status. A newer prompt marks the stage "re-check".
+- **Decision log.** Locks, picks, approvals, stack, sign-off, prompt versions, build checks, reviews and council verdict changes are recorded automatically by comparing the card before and after each change. Text edits are not logged.
+- **Review without accounts.** The share link carries the plan compressed in the URL fragment (after `#`), which browsers do not send to servers. The reviewer page validates it, re-sanitizes the preview and shows it read-only. The reply is another link; opening it on the builder's browser offers to add the review and notes if the plan changed since.
+
 ## Choices made where the spec was open
 
 - **Default model is `gemma-4-26b-a4b-it`**, the model verified on this project's AI Studio key, instead of `gemma-3-27b-it`. Change it with `GEMMA_MODEL`. Gemma 4 runs with minimal thinking so each call takes seconds.
@@ -149,6 +171,7 @@ The look follows the TeamMate design prompt: a dark instrument console with one 
 - **Structured architecture blocks** (data model, API, services, risks) are edited as JSON, validated by the same Zod schemas the model output must pass. The diagram, the deployment fields and all text fields are edited inline. The SQL is derived from the data model by code.
 - **Your direction survives regeneration.** Re-running directions keeps both your own directions and the one you picked; only the others are replaced.
 - **Rate limits and saved reviews are per server instance and in memory**, which is fine for a demo. Ideas live in this browser's localStorage, and a Supabase store is stubbed behind the same interface.
+- **Six stages, not five.** Verify was added after the design prompt, to close the loop from prompt to checked build.
 - **The design prompt's file paths** (`client/src/...`) are from the earlier Vite app; the design was applied to this Next.js app instead, since the build prompt decides scope.
 - **Sign-off covers three decisions** (product bet, stack, out of scope). Editing any of them later voids the signature, and the prompt shows "Sign again".
 - **Preview approval** is per direction: picking another direction or regenerating its preview clears it.

@@ -1,4 +1,6 @@
 // The export bundle's files, built from the card. Pure, so it is unit-tested; zipping happens in the browser.
+import { acceptanceMarkdown, acceptanceSpec } from "./acceptance";
+import { decisionsMarkdown } from "../log";
 import { toSql } from "../architecture/sql";
 import { claudeMd, compilePrompt, projectName, screensOf } from "../prompts/compile";
 import { outOfScopeOf } from "../prompts/common";
@@ -95,6 +97,9 @@ export function bundleFiles(card: IdeaCard): Record<string, string> {
     "PROMPT.md": prompt,
     "preview.html": chosenDirection(card)?.previewHtml ?? "<!doctype html><title>No preview</title><p>No preview was generated.</p>",
     "CLAUDE.md": claudeMd(card),
+    "ACCEPTANCE.md": acceptanceMarkdown(card),
+    "tests/acceptance.spec.ts": acceptanceSpec(card),
+    "DECISIONS.md": decisionsMarkdown(card),
     "idea-card.json": JSON.stringify(card, null, 2),
   };
 }
