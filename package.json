@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@google/genai": "^2.30.0",
@@ -35,6 +36,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22.20.5",
     "@types/react": "^19",
@@ -45,7 +47,7 @@
     "typescript": "^5",
     "vitest": "^5.0.5"
   },
-  "description": "TeamMate gets you to a prompt you trust — not to code.",
+  "description": "TeamMate gets you to a prompt you trust \u2014 not to code.",
   "engines": {
     "node": ">=20.9"
   }
