@@ -5,25 +5,41 @@ import { emptyArchitecture, newIdeaCard, type IdeaCard } from "../schema/ideaCar
 import { stamp } from "../stale";
 import { logChanges } from "../log";
 import { withReadiness } from "../readiness";
+import { LIVE_SCRIPT, reactRoomsScript, SHOWCASE_STYLE, staticRooms } from "../preview/showcase";
 
-const PREVIEW = `<!doctype html><html><head><title>StudySpot</title><script src="https://cdn.tailwindcss.com"></script></head>
+const ROOMS = [
+  { name: "Room 2.14 · 4 seats", meta: "free until 15:00" },
+  { name: "Room 2.09 · 6 seats", meta: "free until 16:30" },
+  { name: "Room 1.03 · 2 seats", meta: "busy" },
+];
+
+/** Counts the hold down from 15:00 on the Hold screen. */
+const COUNTDOWN = `<script>
+  (function () {
+    var left = 15 * 60 - 8;
+    var el = document.querySelector("[data-countdown]");
+    setInterval(function () { if (!el || left <= 0) return; left -= 1; el.textContent = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0"); }, 1000);
+  })();
+</script>`;
+
+const PREVIEW = `<!doctype html><html><head><title>StudySpot</title>${SHOWCASE_STYLE}</head>
 <body class="bg-slate-50 text-slate-900"><div class="mx-auto max-w-md min-h-screen bg-white">
 <section data-screen="rooms" data-title="Free now">
   <header class="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3"><span class="font-semibold">StudySpot</span><nav class="text-sm text-slate-600"><a href="#" data-goto="mine">My booking</a></nav></header>
   <main class="space-y-3 p-4">
-    <p class="text-sm text-slate-500">Main library · updated 30s ago</p>
-    <ul class="divide-y divide-slate-200 rounded-xl border border-slate-200">
-      <li class="flex items-center justify-between px-4 py-3"><span class="text-sm">Room 2.14 · 4 seats</span><span class="text-xs text-emerald-600">free until 15:00</span></li>
-      <li class="flex items-center justify-between px-4 py-3"><span class="text-sm">Room 2.09 · 6 seats</span><span class="text-xs text-emerald-600">free until 16:30</span></li>
-      <li class="flex items-center justify-between px-4 py-3"><span class="text-sm text-slate-400">Room 1.03 · 2 seats</span><span class="text-xs text-slate-400">busy</span></li>
-    </ul>
-    <button type="button" data-goto="hold" class="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white">Hold Room 2.14 for 15 min</button>
+    <div class="tm-hero rounded-2xl p-5 text-white">
+      <p class="text-xs opacity-80"><span class="tm-live">●</span> Main library · updated <span data-ago>just now</span></p>
+      <h2 class="mt-1 text-xl font-semibold">2 rooms free right now</h2>
+      <div class="tm-glass mt-3 rounded-xl px-3 py-2 text-sm">Nearest: Room 2.14, 40 m away</div>
+    </div>
+    ${staticRooms(ROOMS)}
+    <button type="button" data-goto="hold" class="tm-cta w-full rounded-lg px-4 py-2.5 text-sm font-medium text-white">Hold Room 2.14 for 15 min</button>
   </main>
 </section>
 <section data-screen="hold" data-title="Hold">
   <header class="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3"><span class="font-semibold">StudySpot</span><nav class="text-sm text-slate-600"><a href="#" data-goto="rooms">Rooms</a></nav></header>
   <main class="space-y-3 p-4">
-    <div class="rounded-xl border border-slate-200 p-4 shadow-sm"><h3 class="font-medium">Room 2.14 is held for you</h3><p class="mt-1 text-sm text-slate-600">Walk there and tap “I'm here” within 14:52.</p></div>
+    <div class="rounded-xl border border-slate-200 p-4 shadow-sm"><h3 class="font-medium">Room 2.14 is held for you</h3><p class="mt-1 text-sm text-slate-600">Walk there and tap “I'm here” within <span data-countdown class="font-mono">14:52</span>.</p></div>
     <form class="space-y-3"><label class="block text-sm font-medium text-slate-700">How many people?<input class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="3"></label></form>
     <button type="button" data-goto="mine" class="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white">I'm here</button>
   </main>
@@ -36,7 +52,7 @@ const PREVIEW = `<!doctype html><html><head><title>StudySpot</title><script src=
     <button type="button" data-goto="rooms" class="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white">Release the room</button>
   </main>
 </section>
-</div></body></html>`;
+</div>${LIVE_SCRIPT}${COUNTDOWN}${reactRoomsScript(ROOMS)}</body></html>`;
 
 export function exampleIdea(now = new Date().toISOString()): IdeaCard {
   let c = newIdeaCard(
@@ -94,6 +110,7 @@ export function exampleIdea(now = new Date().toISOString()): IdeaCard {
   ];
   c.chosenDirectionId = "dir-hold";
   c.previewApprovedId = "dir-hold";
+  c.archetypeId = "soft-gradient";
   c = stamp(c, "council");
   c = stamp(c, "preview");
 

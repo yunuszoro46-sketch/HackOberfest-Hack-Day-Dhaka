@@ -7,7 +7,7 @@ import { Chip } from "@/components/console/Chip";
 import { Panel, PanelBody, PanelHeader, StageHeading } from "@/components/console/Panel";
 import { Crumb, TopBar } from "@/components/console/TopBar";
 import { useToast } from "@/components/console/Toast";
-import { sanitizePreview } from "@/lib/preview/sanitize";
+import { previewDocument } from "@/lib/preview/sanitize";
 import { outOfScopeOf } from "@/lib/prompts/common";
 import { projectName } from "@/lib/prompts/compile";
 import { PERSONA_BRIEFS } from "@/lib/prompts/council";
@@ -45,7 +45,7 @@ export default function ReviewPage() {
 
   const preview = useMemo(() => {
     const html = card ? chosenDirection(card)?.previewHtml : undefined;
-    return html ? sanitizePreview(html).html : null;
+    return html ? previewDocument(html, { origin: window.location.origin }) : null;
   }, [card]);
 
   if (error) {

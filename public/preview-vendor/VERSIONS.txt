@@ -1,0 +1,4 @@
+react.js	react@18.3.1	(MIT)
+react-dom.js	react-dom@18.3.1	(MIT)
+htm.js	htm@3.1.1	(MIT)
+tailwind.js	@tailwindcss/browser@4.3.3	(MIT)

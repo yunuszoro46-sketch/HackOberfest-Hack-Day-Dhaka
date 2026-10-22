@@ -2,6 +2,7 @@
 import { acceptanceMarkdown, acceptanceSpec } from "./acceptance";
 import { decisionsMarkdown } from "../log";
 import { toSql } from "../architecture/sql";
+import { previewDocument } from "../preview/sanitize";
 import { claudeMd, compilePrompt, projectName, screensOf } from "../prompts/compile";
 import { outOfScopeOf } from "../prompts/common";
 import { PERSONA_BRIEFS } from "../prompts/council";
@@ -88,6 +89,12 @@ ${list(a.risks.value.map((r) => `**${r.risk}** (${r.likelihood}) — ${r.mitigat
 `;
 }
 
+/** The chosen preview as a standalone file: its libraries load from pinned jsDelivr URLs instead of TeamMate. */
+function exportPreview(card: IdeaCard): string {
+  const html = chosenDirection(card)?.previewHtml;
+  return html ? previewDocument(html, "export") : "<!doctype html><title>No preview</title><p>No preview was generated.</p>";
+}
+
 /** File name → content for the "Download bundle" zip. */
 export function bundleFiles(card: IdeaCard): Record<string, string> {
   const prompt = card.prompt?.markdown ?? compilePrompt(card, card.prompt?.target ?? "claude-code");
@@ -95,7 +102,7 @@ export function bundleFiles(card: IdeaCard): Record<string, string> {
     "PRD.md": prdMarkdown(card),
     "ARCHITECTURE.md": architectureMarkdown(card),
     "PROMPT.md": prompt,
-    "preview.html": chosenDirection(card)?.previewHtml ?? "<!doctype html><title>No preview</title><p>No preview was generated.</p>",
+    "preview.html": exportPreview(card),
     "CLAUDE.md": claudeMd(card),
     "ACCEPTANCE.md": acceptanceMarkdown(card),
     "tests/acceptance.spec.ts": acceptanceSpec(card),

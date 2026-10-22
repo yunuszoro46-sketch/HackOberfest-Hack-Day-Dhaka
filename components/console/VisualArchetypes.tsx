@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 /** "Aesthetic DNA" cards. The chosen archetype styles the preview and is written into the build prompt. */
 export function VisualArchetypes({ selectedId, onSelect }: { selectedId: string | null; onSelect: (id: string | null) => void }) {
   return (
-    <div role="radiogroup" aria-label="Visual archetype" className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <div role="radiogroup" aria-label="Visual archetype" className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       {ARCHETYPES.map((a) => {
         const on = a.id === selectedId;
         return (

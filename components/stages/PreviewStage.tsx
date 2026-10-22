@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, Columns2, Monitor, ShieldCheck, Smartphone, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -13,7 +13,7 @@ import { archetypeById, suggestedArchetype } from "@/lib/archetypes";
 import { useIdea } from "@/lib/client/IdeaContext";
 import { runPreview, withPreview } from "@/lib/client/stages";
 import type { useStageRun } from "@/lib/client/useStageRun";
-import { findScreens } from "@/lib/preview/sanitize";
+import { findScreens, previewDocument } from "@/lib/preview/sanitize";
 import { isStale, stamp } from "@/lib/stale";
 import { chosenDirection, type Direction, type IdeaCard } from "@/lib/schema/ideaCard";
 import { cn } from "@/lib/utils";
@@ -24,7 +24,13 @@ type Width = "desktop" | "mobile";
 
 /** Window chrome + the sandboxed frame. Scripts run (screen switching only) with no same-origin access. */
 function PreviewFrame({ direction, width, loading, label }: { direction: Direction; width: Width; loading: boolean; label?: string }) {
+  const [scripts, setScripts] = useState(true);
   const screens = direction.previewHtml ? findScreens(direction.previewHtml) : [];
+  const hasModelScripts = !!direction.previewHtml?.includes("<script data-tm-model>");
+  const doc = useMemo(
+    () => (direction.previewHtml ? previewDocument(direction.previewHtml, { origin: window.location.origin }, { scripts }) : ""),
+    [direction.previewHtml, scripts],
+  );
   const h = width === "mobile" ? "h-[420px]" : "h-[520px]";
   return (
     <div className="min-w-0 overflow-hidden rounded-[8px] border border-line bg-[var(--panel)]">
@@ -35,12 +41,19 @@ function PreviewFrame({ direction, width, loading, label }: { direction: Directi
         <span className="min-w-0 truncate font-mono text-[12px] text-fg-dim">
           {label ? `${label} · ` : ""}{direction.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}.preview · {screens.length ? `${screens.length} screens` : "not generated"}
         </span>
+        {hasModelScripts && (
+          <button type="button" onClick={() => setScripts((x) => !x)} aria-pressed={scripts} data-testid="preview-scripts"
+            title="The mockup's own JavaScript (React components, animations). It runs sandboxed with no network access."
+            className="ml-auto inline-flex h-[26px] shrink-0 items-center gap-1 rounded-[4px] border border-line-2 px-2 font-mono text-[12px] text-fg-dim hover:text-fg">
+            <span aria-hidden="true">{scripts ? "●" : "○"}</span> JS {scripts ? "on" : "off"}
+          </button>
+        )}
       </div>
       {loading && !direction.previewHtml ? (
         <div className={cn("p-6", h)}><Skeleton lines={8} /></div>
       ) : direction.previewHtml ? (
         <div className={cn("mx-auto bg-white", width === "mobile" ? "max-w-[390px]" : "w-full")}>
-          <iframe title={`Preview of ${direction.title}`} sandbox="allow-scripts" srcDoc={direction.previewHtml}
+          <iframe key={scripts ? "js" : "nojs"} title={`Preview of ${direction.title}`} sandbox="allow-scripts" srcDoc={doc}
             className={cn("block w-full", h)} data-testid="preview-frame" data-direction-id={direction.id} />
         </div>
       ) : (

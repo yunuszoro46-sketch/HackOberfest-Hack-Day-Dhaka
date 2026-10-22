@@ -74,6 +74,16 @@ test("demo path", async ({ page, context }) => {
   const frame = page.frameLocator('[data-testid="preview-frame"]').first();
   await expect(frame.locator('[data-screen="home"]')).toBeVisible({ timeout: 30_000 });
   await expect(frame.locator('[data-screen="pick"]')).toBeHidden();
+  // React (served by TeamMate, not a CDN) renders a filterable list inside the sandbox.
+  await frame.getByTestId("room-filter").fill("sci");
+  await expect(frame.locator("#tm-rooms li")).toHaveCount(1);
+  await expect(frame.locator(".tm-hero")).toHaveCSS("background-image", /radial-gradient/);
+  // JS off: the static list is shown instead, and screen switching still works.
+  await page.getByTestId("preview-scripts").first().click();
+  await expect(frame.getByTestId("room-filter")).toHaveCount(0);
+  await expect(frame.locator("#tm-rooms li")).toHaveCount(3);
+  await page.getByTestId("preview-scripts").first().click();
+  await expect(frame.getByTestId("room-filter")).toBeVisible();
   await frame.getByRole("button", { name: "Pick a room" }).click();
   await expect(frame.locator('[data-screen="pick"]')).toBeVisible();
   await frame.getByRole("button", { name: /Book Library 2.14/ }).click();

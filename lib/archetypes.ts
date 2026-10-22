@@ -104,6 +104,29 @@ export const ARCHETYPES: VisualArchetype[] = [
     ],
     sampleCssVars: "--parchment: #EBE5D8; --espresso: #141210; --terracotta: #D97746;",
   },
+  {
+    id: "soft-gradient",
+    name: "Soft Gradient / Glass",
+    tagline: "Colour-washed gradient backgrounds, frosted glass cards and gradient pill buttons.",
+    bestFor: "Consumer and student apps, social and wellbeing products, landing-first MVPs.",
+    palette: [
+      { name: "Indigo", hex: "#4F46E5" },
+      { name: "Violet", hex: "#8B5CF6" },
+      { name: "Pink", hex: "#EC4899" },
+      { name: "Mist", hex: "#F5F3FF" },
+    ],
+    typography: {
+      display: "Manrope / system-ui (semibold)",
+      body: "system-ui",
+      data: "ui-monospace (tabular)",
+    },
+    principles: [
+      "One gradient wash per screen (hero or background), never behind long body text",
+      "Frosted cards: white at 70-80% with backdrop blur and a 1px white border",
+      "Gradient only on the primary button; text stays solid and readable (4.5:1)",
+    ],
+    sampleCssVars: "--g1: #4F46E5; --g2: #8B5CF6; --g3: #EC4899; --mist: #F5F3FF;",
+  },
 ];
 
 

@@ -26,7 +26,7 @@ Everything TeamMate produces is **editable and lockable**. A locked field is pas
 | ![Stage 6, Verify](docs/screenshots/7-verify.png) | ![Read-only review](docs/screenshots/8-review.png) |
 | **6 · Verify.** Each criterion pass/fail with evidence; one click to the fix prompt. | **Review link.** A mentor reviews the plan read-only and replies with a link. |
 
-Screenshots are from the example idea in the `console` theme (`npm run screenshots`). They were taken in a sandbox that blocks the Tailwind CDN, so the preview frame shows unstyled HTML; in a normal browser it is styled.
+Screenshots are from the example idea in the `console` theme (`npm run screenshots`).
 
 ## Demo path (about 90 seconds)
 
@@ -136,10 +136,11 @@ lib/
 - **Staleness.** When a stage runs, it stores a fingerprint of its upstream inputs. Editing an upstream field changes that fingerprint, so the downstream stages show as stale in the stepper and banner, and **Regenerate stale** re-runs them in order. Locked fields, your own directions and your chosen direction survive regeneration.
 - **Model output** is always parsed with Zod. A bad reply is retried once with the parse error appended. A second failure returns 422 with the raw text, which the UI shows in a collapsible panel next to Retry.
 - **Competitor URLs** are never typed by the model. It picks search results by number and the server copies those results' URLs. With Gemini grounding, a URL is kept only if its site came back from the search. Otherwise the entry is marked "model knowledge" and has no link.
-- **Previews:**
-  - **Rebuilt from an allow-list.** The sanitizer drops every script the model writes, event handlers, `javascript:` links, frames, external images, styles and fonts, and CSS `url()`, `@import` and `expression()`.
-  - **Two scripts injected.** It adds only the Tailwind CDN and TeamMate's own screen-switcher script, plus a bottom screen bar and a Content-Security-Policy that blocks all other loading.
-  - **Sandboxed.** The result is shown in `<iframe sandbox="allow-scripts">` with no same-origin access.
+- **Previews** are real front-end mockups: Tailwind, custom CSS (gradients, glass, keyframe animations), small JavaScript interactions, and one React component written with [htm](https://github.com/developit/htm) (no JSX, no build step). The example and the mock replies show all four.
+  - **Rebuilt from an allow-list.** Unknown tags and attributes, `on…=` handlers, `javascript:` links, frames, external images, stylesheets and fonts, and CSS `url()`/`@import`/`expression()` are removed.
+  - **Model scripts.** Up to four inline scripts (40 KB) are kept, tagged so the **JS on/off** switch on the frame can remove them. External `<script src>` is never kept. A script that navigates, opens windows, reaches the parent page, uses storage or cookies, calls `eval`/`Function` or opens dialogs is dropped and reported. That check is a heuristic on top of the next two layers, not a replacement.
+  - **No network.** A Content-Security-Policy allows scripts only inline and from TeamMate's own `/preview-vendor/` (Tailwind 4.3.3 browser build, React 18.3.1, ReactDOM 18.3.1, htm 3.1.1, pinned and committed; `node scripts/vendor-preview.mjs` refreshes them), and sets `connect-src 'none'`, `img-src data:`, `form-action 'none'`.
+  - **Sandboxed.** Shown in `<iframe sandbox="allow-scripts">`: no same-origin access, no popups, no modals, no top-level navigation. Links inside the preview are kept inside it. The exported `preview.html` loads the same pinned versions from jsDelivr.
 - **Prompt compiler.** A fixed template with sections from Project through Risks to Watch. The four targets change headings and tone, not content. It's deterministic: the same card always gives the same prompt.
 - **Hygiene.** Per-IP in-memory rate limit, one JSON log line per model call (stage, provider, latency, tokens, outcome; never prompts or keys), loading states that name the running stage and its elapsed seconds, and autosave on every change.
 
@@ -148,6 +149,7 @@ lib/
 The look follows the TeamMate design prompt: a dark instrument console with one amber accent.
 
 - **Three themes** (`console`, `dim`, `paper`) are CSS custom properties on `<html data-theme>`, saved in localStorage and applied before first paint. Tailwind reads them through `@theme` in `app/globals.css`, so components never use raw palette colours.
+- **Visual archetypes** now include **Soft Gradient / Glass** (gradient washes, frosted cards, gradient primary button) next to Hardware Console, Bento Grid, Monospace and Editorial. The example idea uses it.
 - **Readability over the spec's exact values.** Dim's text and accents are brighter than the spec (its secondary text was hard to read), Console's and Paper's secondary greys are a step stronger, and `paper --amber` is `#A06000` (the spec's `#B86E00` gave 3.7:1 for button text). Every pair still passes the contrast gate.
 - **Type.** Body text is 16px IBM Plex Sans; labels, section headings and buttons use the same plain face (no spaced uppercase). Chakra Petch is kept only for page titles, the question and the readiness number; JetBrains Mono for data, chips and code. Fonts are self-hosted with `@fontsource`, because Google Fonts was blocked in the build environment.
 - **Status is never colour alone**: chips carry a symbol (`✓ ! ✕ ⊙ ●`) and text; avatars carry `$`, `U`, `</>`.
