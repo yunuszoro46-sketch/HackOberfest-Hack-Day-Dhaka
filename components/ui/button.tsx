@@ -3,26 +3,26 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
+// Console buttons (design §4.1). Chakra Petch 600, 13px. One primary per screen.
+// On touch screens an invisible ::after extends the hit area to at least 44px without changing the visual size.
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 aria-invalid:border-destructive cursor-pointer",
+  "relative inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-[6px] border font-display text-[13px] font-semibold tracking-[.04em] transition-[filter,transform,border-color,background-color] outline-none active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 pointer-coarse:after:absolute pointer-coarse:after:-inset-2 pointer-coarse:after:content-['']",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
-        destructive: "bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20",
-        outline: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        primary: "border-amber bg-amber text-amber-ink hover:brightness-[1.06]",
+        secondary: "border-line-2 bg-panel text-fg hover:border-fg-dim",
+        ghost: "border-transparent bg-transparent text-fg-dim hover:bg-panel-2 hover:text-fg",
+        approve: "border-ok bg-[var(--ok-ghost)] text-ok hover:brightness-110",
+        danger: "border-crit bg-[var(--crit-ghost)] text-crit hover:brightness-110",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
+        default: "h-[38px] px-4",
+        sm: "h-[30px] px-3 text-[12px] [&_svg]:size-3.5",
+        icon: "size-[38px]",
       },
     },
-    defaultVariants: { variant: "default", size: "default" },
+    defaultVariants: { variant: "secondary", size: "default" },
   },
 );
 
@@ -30,7 +30,7 @@ function Button({
   className, variant, size, asChild = false, ...props
 }: React.ComponentProps<"button"> & VariantProps<typeof buttonVariants> & { asChild?: boolean }) {
   const Comp = asChild ? Slot : "button";
-  return <Comp data-slot="button" className={cn(buttonVariants({ variant, size, className }))} {...props} />;
+  return <Comp data-slot="button" data-variant={variant ?? "secondary"} className={cn(buttonVariants({ variant, size, className }))} {...props} />;
 }
 
 export { Button, buttonVariants };

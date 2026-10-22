@@ -1,8 +1,10 @@
 // Stage 5 — Prompt Compiler. Template-filled, never freeform: the same card always compiles to the same Markdown.
 // Targets change headings and tone, not content.
 import { toSql } from "../architecture/sql";
+import { archetypeById } from "../archetypes";
 import { findScreens } from "../preview/sanitize";
 import { chosenDirection, PERSONAS, type IdeaCard, type PromptTarget, type Service } from "../schema/ideaCard";
+import { outOfScopeOf } from "./common";
 import { PERSONA_BRIEFS } from "./council";
 
 export const SECTION_KEYS = [
@@ -80,6 +82,12 @@ export function workOrder(card: IdeaCard): string[] {
   return steps;
 }
 
+function visualDirection(card: IdeaCard): string {
+  const a = archetypeById(card.archetypeId);
+  if (!a) return "";
+  return `**Visual direction: ${a.name}** — ${a.tagline}\n- Palette: ${a.palette.map((p) => `${p.name} \`${p.hex}\``).join(", ")}\n- Type: display ${a.typography.display}; body ${a.typography.body}; numbers ${a.typography.data}\n${a.principles.map((p) => `- ${p}`).join("\n")}`;
+}
+
 function sections(card: IdeaCard): Record<SectionKey, string> {
   const dir = chosenDirection(card);
   const a = card.architecture;
@@ -101,7 +109,7 @@ function sections(card: IdeaCard): Record<SectionKey, string> {
     direction: dir
       ? [`**${dir.title}** — ${or(dir.oneLiner)}`, "", or(dir.rationale), card.council ? `\nThe council's objections this direction must answer:\n${list(PERSONAS.map((p) => `${PERSONA_BRIEFS[p].title}: ${card.council![p].strongest_objection}`))}` : ""].join("\n")
       : "_No direction chosen._",
-    outOfScope: list(card.outOfScope.value),
+    outOfScope: list(outOfScopeOf(card)),
     stack: stack ? `**${stack.name}**\n${list(stack.stack)}\n\nWhy: ${stack.why}\nWatch: ${stack.whyNot}` : "_No stack chosen._",
     dataModel: a?.dataModel.value.length
       ? `${a.dataModel.value.map((e) => `**${e.name}**: ${e.fields.map((f) => `${f.name} (${f.type})`).join(", ")}${e.relations.length ? `; ${e.relations.join("; ")}` : ""}`).join("\n")}\n\n\`\`\`sql\n${toSql(a.dataModel.value)}\n\`\`\``
@@ -109,7 +117,10 @@ function sections(card: IdeaCard): Record<SectionKey, string> {
     api: a?.apiSurface.value.length
       ? `| Method | Path | Request | Response | Note |\n|---|---|---|---|---|\n${a.apiSurface.value.map((e) => `| ${e.method} | \`${e.path}\` | ${e.request || "—"} | ${e.response || "—"} | ${e.note || ""} |`).join("\n")}`
       : "_No endpoints._",
-    screens: screens.length ? screens.map((s, i) => `${i + 1}. **${s.title}** (\`${s.id}\`)`).join("\n") + "\n\nA clickable HTML mockup of these screens is in `preview.html`." : "_No preview generated; derive screens from the core action._",
+    screens: [
+      screens.length ? screens.map((s, i) => `${i + 1}. **${s.title}** (\`${s.id}\`)`).join("\n") + "\n\nA clickable HTML mockup of these screens is in `preview.html`." : "_No preview generated; derive screens from the core action._",
+      visualDirection(card),
+    ].filter(Boolean).join("\n\n"),
     services: [
       services.length ? services.map((s) => `- **${s.name}** — ${s.reason}. Free tier: ${s.freeTier}. Env var: \`${envVarFor(s)}\``).join("\n") : "- No third-party services.",
       needsDb ? "- Database connection: `DATABASE_URL`" : "",
@@ -138,7 +149,7 @@ Target user: ${or(card.targetUser.value)}
 - Work step by step through the Work Order in PROMPT.md. After each step run the build and tests and verify that step's acceptance criteria before moving on.
 - Stack is fixed: ${stack ? stack.stack.join(", ") : "see ARCHITECTURE.md"}. Do not add frameworks.
 - Never build anything listed under Out of Scope:
-${card.outOfScope.value.map((o) => `  - ${o}`).join("\n") || "  - (none recorded)"}
+${outOfScopeOf(card).map((o) => `  - ${o}`).join("\n") || "  - (none recorded)"}
 - Keys and secrets live in server-side env vars only.
 - Prefer the shortest path to a working main flow; say when you make a judgment call.
 `;

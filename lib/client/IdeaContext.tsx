@@ -47,19 +47,36 @@ export function IdeaProvider({ id, children }: { id: string; children: ReactNode
     ideaStore().get(id).then((card) => dispatch({ type: "load", card }));
   }, [id]);
 
-  // Autosave on every change.
+  // Autosave on every change, 400ms after the last one.
   useEffect(() => {
     if (!state.dirty || !state.card) return;
     const card = state.card;
-    ideaStore()
-      .save(card)
-      .then(() => {
-        setSavedAt(Date.now());
-        setSaveError(null);
-        dispatch({ type: "saved" });
-      })
-      .catch((e) => setSaveError((e as Error).message));
+    const t = setTimeout(() => {
+      ideaStore()
+        .save(card)
+        .then(() => {
+          setSavedAt(Date.now());
+          setSaveError(null);
+          dispatch({ type: "saved" });
+        })
+        .catch((e) => setSaveError((e as Error).message));
+    }, 400);
+    return () => clearTimeout(t);
   }, [state.card, state.dirty]);
+
+  // Never lose the last edit: flush a pending save when the page hides or the workspace unmounts.
+  const dirtyRef = useRef(false);
+  dirtyRef.current = state.dirty;
+  useEffect(() => {
+    const flush = () => {
+      if (dirtyRef.current && ref.current) void ideaStore().save(ref.current);
+    };
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, []);
 
   const update = useCallback((fn: (c: IdeaCard) => IdeaCard) => {
     // Keep latest() current right away, so a stage call started in the same tick sees this change.

@@ -58,19 +58,23 @@ describe("readiness", () => {
   it("is 0 for an empty card and lists what would raise it", () => {
     const r = computeReadiness(newIdeaCard("x"));
     expect(r.score).toBe(0);
-    expect(r.improvements[0].label).toMatch(/Fill problem/);
-    expect(r.improvements.map((i) => i.label)).toContain("Choose a direction");
+    expect(r.improvements[0].points).toBe(20);
+    expect(r.improvements.map((i) => i.label)).toContain("Pick a direction.");
+    expect(r.contributors.map((c) => c.max)).toEqual([15, 20, 15, 20, 15, 15]);
   });
 
   it("counts filled and locked fields, and a stale stage only half", () => {
     let c = filledCard();
     const base = computeReadiness(c).score;
-    expect(base).toBe(20 + 3); // four core fields + 1 of 5 lockables locked (15 * 1/5)
+    expect(base).toBe(5); // 1 locked field (5 points each, up to 3)
     c = stamp({ ...c, council: { investor: crit(), user: crit(), engineer: crit() } }, "council");
     expect(computeReadiness(c).score).toBe(base + 10);
     c = { ...c, whyNow: { value: "Changed", locked: false } };
     expect(computeReadiness(c).score).toBe(base + 5);
     expect(withReadiness(c).readiness).toBe(base + 5);
+    c = { ...c, directions: [{ id: "d", title: "t", oneLiner: "o", rationale: "r", citations: [] }], chosenDirectionId: "d", previewApprovedId: "d" };
+    expect(computeReadiness(c).score).toBe(base + 5 + 15 + 20);
+    expect(computeReadiness({ ...c, chosenDirectionId: null }).score).toBe(base + 5); // approval only counts for the chosen direction
   });
 });
 
@@ -96,7 +100,7 @@ describe("LocalStorageIdeaStore", () => {
     storage.setItem("teammate:idea:broken", "{not json");
     const list = await store.list();
     expect(list.map((s) => s.id)).toEqual([b.id, a.id]);
-    expect(list[1]).toMatchObject({ title: "Book a free study room in two taps", readiness: 23 });
+    expect(list[1]).toMatchObject({ title: "Book a free study room in two taps", readiness: 5 });
     const copy = await store.duplicate(a.id);
     expect(copy.id).not.toBe(a.id);
     expect(copy.coreAction).toEqual(a.coreAction);
@@ -149,7 +153,8 @@ describe("seed example idea", async () => {
     expect(card.chosenDirectionId).toBe("dir-hold");
     expect(card.directions[0].previewHtml).toContain('data-screen="mine"');
     expect(card.architecture?.chosenId).toBe("stack-next");
-    // 20 core + 4 locks (3 of 11) + 10 council + 5 competitors without live search + 15 direction + 15 architecture; no prompt yet
-    expect(card.readiness).toBe(69);
+    // 15 locks + 10 council + 5 competitors without live search + 15 direction + 20 preview approved + 15 stack; no prompt yet
+    expect(card.readiness).toBe(80);
+    expect(card.provenance.council?.kind).toBe("mock");
   });
 });

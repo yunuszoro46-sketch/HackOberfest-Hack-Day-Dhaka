@@ -86,6 +86,7 @@ export function exampleIdea(now = new Date().toISOString()): IdeaCard {
     { id: "dir-crowd", title: "Crowd-confirmed rooms", oneLiner: "Students confirm 'still free' when they pass a room; no sensors needed.", rationale: "Answers the Senior Engineer: removes the sensor dependency.", citations: ["Senior Engineer"] },
   ];
   c.chosenDirectionId = "dir-hold";
+  c.previewApprovedId = "dir-hold";
   c = stamp(c, "council");
   c = stamp(c, "preview");
 
@@ -123,5 +124,8 @@ export function exampleIdea(now = new Date().toISOString()): IdeaCard {
   };
   c.architecture = a;
   c = stamp(c, "architecture");
+  // The example is hand-written, not model output; every block says so.
+  const seed = { kind: "mock" as const, model: "example seed", at: now };
+  c.provenance = { interrogate: seed, council: seed, competitors: seed, directions: seed, "preview:dir-hold": seed, architecture: seed, "architecture-details": seed };
   return withReadiness(c);
 }

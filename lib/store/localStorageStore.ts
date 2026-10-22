@@ -1,6 +1,6 @@
 import { IdeaCardSchema, type IdeaCard } from "../schema/ideaCard";
 import { withReadiness } from "../readiness";
-import { summaryTitle, type IdeaStore, type IdeaSummary } from "./IdeaStore";
+import { summarize, type IdeaStore, type IdeaSummary } from "./IdeaStore";
 
 const PREFIX = "teammate:idea:";
 
@@ -33,7 +33,7 @@ export class LocalStorageIdeaStore implements IdeaStore {
     return this.keys()
       .map((k) => this.read(k))
       .filter((c): c is IdeaCard => c !== null)
-      .map((c) => ({ id: c.id, title: summaryTitle(c), readiness: c.readiness, updatedAt: c.updatedAt }))
+      .map(summarize)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 

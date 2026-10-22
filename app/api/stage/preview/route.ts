@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { generateHtml } from "@/lib/llm/adapter";
 import "@/lib/llm/mockReplies";
+import { archetypeById } from "@/lib/archetypes";
 import { previewPrompt } from "@/lib/prompts/preview";
 import { previewProblem, sanitizePreview } from "@/lib/preview/sanitize";
 import { IdeaCardSchema } from "@/lib/schema/ideaCard";
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
     const direction = card.directions.find((d) => d.id === id);
     if (!direction) throw new LlmError("Pick a direction before generating a preview.", 400);
     const previousHtml = note && direction.previewHtml ? direction.previewHtml : undefined;
-    const { system, user } = previewPrompt(card, direction, { note, previousHtml });
+    const { system, user } = previewPrompt(card, direction, { note, previousHtml, archetype: archetypeById(card.archetypeId) });
     const out = await generateHtml({ stage: "preview", system, user, signal, validate: previewProblem, temperature: 0.5 });
     const clean = sanitizePreview(out.html);
     return { directionId: direction.id, previewHtml: clean.html, screens: clean.screens, removed: clean.removed, provider: out.provider, model: out.model };

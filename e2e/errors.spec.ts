@@ -5,9 +5,10 @@ test.use({ baseURL: "http://localhost:3401" });
 
 test("a failing stage shows the error, the raw details and Retry", async ({ page }) => {
   await page.goto("/");
+  await page.getByTestId("start-paragraph").click();
   await page.locator("#raw").fill("An app that helps students find free study rooms.");
   await page.getByTestId("new-idea").click();
-  await expect(page.getByText("No model key on the server")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "No model key on the server" })).toBeVisible();
   for (let i = 0; i < 5; i++) {
     await page.locator("#answer").fill(`Answer ${i + 1}`);
     if (i < 4) await page.getByRole("button", { name: "Next" }).click();
@@ -16,12 +17,14 @@ test("a failing stage shows the error, the raw details and Retry", async ({ page
   const err = page.getByTestId("stage-error");
   await expect(err).toBeVisible();
   await expect(err).toContainText("No Google AI Studio key is set (GEMINI_API_KEY)");
-  await err.getByRole("button", { name: "Raw error" }).click();
+  await err.getByRole("button", { name: "Show raw output" }).click();
   await expect(err).toContainText("HTTP 503");
   await err.getByRole("button", { name: "Retry" }).click();
   await expect(page.getByTestId("stage-error")).toBeVisible();
-  // The answers are kept; the example idea still works without a model.
+  // Answers are kept in the card even though the model failed.
+  await expect(page.locator("#field-coreAction")).toHaveValue("Answer 1");
+  // The example idea still works without a model.
   await page.goto("/");
   await page.getByTestId("load-example").click();
-  await expect(page.getByTestId("readiness")).toContainText("Readiness 69");
+  await expect(page.getByTestId("readiness-value")).toHaveText("80");
 });

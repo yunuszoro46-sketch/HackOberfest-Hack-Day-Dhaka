@@ -9,6 +9,7 @@ export const DirectionsOutputSchema = z.object({
     .array(
       z.object({
         title: z.string().trim().min(1).max(120),
+        tag: z.string().trim().max(40).transform((s) => s.toUpperCase()).optional(),
         oneLiner: z.string().trim().min(1).max(300),
         rationale: z.string().trim().min(1).max(1200),
         citations: z.array(z.string().trim().min(1).max(500)).max(6).default([]),
@@ -35,7 +36,7 @@ export function directionsPrompt(card: IdeaCard, count: number, kept: { title: s
     `Council critiques:\n${critiques}`,
     `Competitors and their gaps:\n${comps}`,
     keep.length ? `These directions stay; propose different ones:\n${keep.join("\n")}` : "",
-    `Propose exactly ${count} direction${count === 1 ? "" : "s"}. Return JSON: {"directions": [{"title": string (3-6 words), "oneLiner": string, "rationale": string (names the critique or competitor gap it answers), "citations": string[] (competitor URLs from the list above, or "Skeptical Investor" / "Target User" / "Senior Engineer")}]}`,
+    `Propose exactly ${count} direction${count === 1 ? "" : "s"}. Return JSON: {"directions": [{"tag": one of "NARROW THE USER" | "INVERT THE MECHANIC" | "CHANGE THE MOMENT" | "10X THE SCALE" | "REMOVE A DEPENDENCY", "title": string (3-6 words), "oneLiner": string, "rationale": string (names the critique or competitor gap it answers), "citations": string[] (competitor URLs from the list above, or "Skeptical Investor" / "Target User" / "Senior Engineer")}]}`,
   ].filter(Boolean).join("\n\n");
   return { system, user };
 }

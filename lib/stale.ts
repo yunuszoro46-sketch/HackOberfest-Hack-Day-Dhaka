@@ -1,5 +1,6 @@
 // Staleness without propagation bugs: each stage stores a fingerprint of the upstream inputs it ran on.
 // Editing an upstream field changes the fingerprint, so every downstream stage reports stale automatically.
+import { outOfScopeOf } from "./prompts/common";
 import { chosenDirection, type IdeaCard, type StageId } from "./schema/ideaCard";
 
 /** The upstream inputs each stage depends on. Only values, never lock flags or timestamps. */
@@ -10,7 +11,7 @@ export function upstreamOf(card: IdeaCard, stage: StageId): unknown {
     coreAction: card.coreAction.value,
     whyNow: card.whyNow.value,
     constraints: card.constraints,
-    outOfScope: card.outOfScope.value,
+    outOfScope: outOfScopeOf(card),
   };
   const dir = chosenDirection(card);
   const direction = dir ? { id: dir.id, title: dir.title, oneLiner: dir.oneLiner, rationale: dir.rationale } : null;
@@ -20,10 +21,11 @@ export function upstreamOf(card: IdeaCard, stage: StageId): unknown {
     case "council":
       return brief;
     case "preview":
+      return { brief, direction, archetypeId: card.archetypeId };
     case "architecture":
       return { brief, direction };
     case "prompt": {
-      const { prompt: _prompt, stamps: _stamps, readiness: _readiness, updatedAt: _u, version: _v, ...rest } = card;
+      const { prompt: _prompt, stamps: _stamps, readiness: _readiness, updatedAt: _u, version: _v, signoff: _s, compareDirectionId: _c, ...rest } = card;
       return rest;
     }
   }

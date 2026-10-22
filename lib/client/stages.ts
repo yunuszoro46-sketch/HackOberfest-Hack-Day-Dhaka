@@ -1,18 +1,18 @@
 "use client";
 
-// One function per stage: takes the current card, returns the patch to apply. Used by the stage panels and by
-// "Regenerate stale", which re-runs every stale stage in order.
+// One function per stage: takes the current card, returns the patch to apply plus who produced it. Used by the
+// stage screens and by "Regenerate stale", which re-runs every stale model stage in order.
 import type { DetailBlock } from "../prompts/architecture";
-import { compilePrompt } from "../prompts/compile";
 import type { InterrogateField } from "../prompts/interrogate";
-import type { IdeaCard, StageId } from "../schema/ideaCard";
+import type { IdeaCard, Provenance, StageId } from "../schema/ideaCard";
 import { callStage } from "./api";
+import { applyPatch } from "./patch";
 
-export type StagePatch = { patch: Partial<IdeaCard>; provider?: string; model?: string };
+export type StagePatch = { patch: Partial<IdeaCard>; provider?: string; model?: string; warning?: string | null };
 
 export const STAGE_STEPS: { id: StageId; label: string }[] = [
   { id: "interrogate", label: "Idea" },
-  { id: "council", label: "Council & Directions" },
+  { id: "council", label: "Council" },
   { id: "preview", label: "Preview" },
   { id: "architecture", label: "Architecture" },
   { id: "prompt", label: "Prompt" },
@@ -26,44 +26,63 @@ export function stageGate(card: IdeaCard, stage: StageId): string | null {
     case "interrogate":
       return null;
     case "council":
-      return card.coreAction.value.trim() ? null : "Answer the five questions first.";
+      return card.stamps.interrogate !== undefined ? null : "Answer the five questions first.";
     case "preview":
     case "architecture":
-      return card.chosenDirectionId ? null : "Pick a direction in Council & Directions first.";
+      return card.chosenDirectionId ? null : "Pick a direction in the Council stage first.";
     case "prompt":
-      return card.architecture?.chosenId ? null : "Choose an architecture first.";
+      return card.architecture?.chosenId ? null : "Choose a stack in Architecture first.";
   }
 }
+
+/** Provenance from a stage reply: a mock, a model, or a search-backed result. */
+export function provenanceOf(res: { provider?: string; model?: string }, sources?: number): Provenance {
+  const at = new Date().toISOString();
+  if (res.provider === "mock") return { kind: "mock", model: res.model, at };
+  if (sources !== undefined) return sources > 0 ? { kind: "search", model: res.model, sources, at } : { kind: "rules", model: res.model, at };
+  return { kind: "model", model: res.model, at };
+}
+
+/** Applies a stage patch and records who produced the block, against the latest card. */
+export const applyStage = (c: IdeaCard, patch: Partial<IdeaCard>, block: string, prov: Provenance): IdeaCard => ({
+  ...applyPatch(c, patch),
+  provenance: { ...c.provenance, [block]: prov },
+});
 
 export const runInterrogate = (card: IdeaCard, fields?: InterrogateField[], signal?: AbortSignal) =>
   callStage<StagePatch>("interrogate", { card, fields }, signal);
 
 export type CouncilPart = "council" | "competitors" | "directions";
 export const COUNCIL_PART_LABEL: Record<CouncilPart, string> = {
-  council: "Council: three critics are reading your card",
-  competitors: "Competitors: searching the web and summarising",
-  directions: "Directions: proposing different product bets",
+  council: "Council · three critics reading the card",
+  competitors: "Council · searching for competitors",
+  directions: "Council · proposing directions",
+};
+
+/** Provenance for a competitor-search reply: source-verified when live search found anything, else rules. */
+export const competitorProvenance = (res: StagePatch) => {
+  const comps = res.patch.competitors ?? [];
+  const live = comps.filter((c) => c.source === "tavily" || c.source === "google-search").length;
+  return res.provider === "mock" ? provenanceOf(res) : provenanceOf(res, live);
 };
 
 /**
  * Stage 2 runs three calls in order; each sees the card as updated by the previous one. `onPart` reports progress
- * and receives each patch as it lands, so the UI fills in step by step.
+ * and receives each reply as it lands, so the screen fills in step by step.
  */
 export async function runCouncilStage(
   card: IdeaCard,
-  onPart: (part: CouncilPart, patch?: Partial<IdeaCard>, warning?: string | null) => void,
+  onPart: (part: CouncilPart, res?: StagePatch) => void,
   parts: CouncilPart[] = ["council", "competitors", "directions"],
-): Promise<Partial<IdeaCard>> {
+): Promise<IdeaCard> {
   let current = card;
-  let all: Partial<IdeaCard> = {};
   for (const part of parts) {
     onPart(part);
-    const res = await callStage<StagePatch & { warning?: string | null }>(part, { card: current });
-    current = { ...current, ...res.patch };
-    all = { ...all, ...res.patch };
-    onPart(part, res.patch, res.warning);
+    const res = await callStage<StagePatch>(part, { card: current });
+    current = applyStage(current, res.patch, part, part === "competitors" ? competitorProvenance(res) : provenanceOf(res));
+    onPart(part, res);
   }
-  return all;
+  return current;
 }
 
 export interface PreviewResult {
@@ -72,29 +91,30 @@ export interface PreviewResult {
   screens: { id: string; title: string }[];
   removed: string[];
   provider?: string;
+  model?: string;
 }
 
 export const runPreview = (card: IdeaCard, opts: { directionId?: string; note?: string } = {}) =>
   callStage<PreviewResult>("preview", { card, ...opts });
 
-/** Puts a generated preview on its direction. */
+/** Puts a generated preview on its direction and records its provenance. */
 export const withPreview = (card: IdeaCard, r: PreviewResult): IdeaCard => ({
   ...card,
   directions: card.directions.map((d) => (d.id === r.directionId ? { ...d, previewHtml: r.previewHtml } : d)),
+  provenance: { ...card.provenance, [`preview:${r.directionId}`]: provenanceOf(r) },
 });
 
 export const runArchitecture = (card: IdeaCard, part: "candidates" | "details", blocks?: DetailBlock[]) =>
   callStage<StagePatch>("architecture", { card, part, blocks });
 
-/** Runners for "Regenerate stale"; filled in as stages are added. */
-export const STALE_RUNNERS: Partial<Record<StageId, (card: IdeaCard) => Promise<Partial<IdeaCard>>>> = {
+/** Model stages "Regenerate stale" can re-run. The prompt is not here: it is only compiled after a human sign-off. */
+export const STALE_RUNNERS: Partial<Record<StageId, (card: IdeaCard) => Promise<IdeaCard>>> = {
   council: (card) => runCouncilStage(card, () => {}),
-  preview: async (card) => ({ directions: withPreview(card, await runPreview(card)).directions }),
+  preview: async (card) => withPreview(card, await runPreview(card)),
   // With a stack chosen, re-run its design (locked blocks stay); otherwise re-suggest stacks.
-  architecture: async (card) => (await runArchitecture(card, card.architecture?.chosenId ? "details" : "candidates")).patch,
-  // The prompt is template-compiled in the browser; recompiling replaces manual edits to the Markdown.
-  prompt: async (card) => {
-    const target = card.prompt?.target ?? "claude-code";
-    return { prompt: { target, markdown: compilePrompt(card, target) } };
+  architecture: async (card) => {
+    const part = card.architecture?.chosenId ? "details" : "candidates";
+    const res = await runArchitecture(card, part);
+    return applyStage(card, res.patch, part === "details" ? "architecture-details" : "architecture", provenanceOf(res));
   },
 };

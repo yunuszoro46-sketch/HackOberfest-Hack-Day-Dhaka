@@ -85,7 +85,7 @@ describe("Prompt compiler", () => {
 describe("Export bundle", () => {
   it("contains the six files with the right content", () => {
     const card = fullCard();
-    card.prompt = { target: "claude-code", markdown: "My edited prompt" };
+    card.prompt = { target: "claude-code", markdown: "My edited prompt", version: 1 };
     const files = bundleFiles(card);
     expect(Object.keys(files)).toEqual(["PRD.md", "ARCHITECTURE.md", "PROMPT.md", "preview.html", "CLAUDE.md", "idea-card.json"]);
     expect(files["PROMPT.md"]).toBe("My edited prompt");

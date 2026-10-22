@@ -1,6 +1,7 @@
 // The export bundle's files, built from the card. Pure, so it is unit-tested; zipping happens in the browser.
 import { toSql } from "../architecture/sql";
 import { claudeMd, compilePrompt, projectName, screensOf } from "../prompts/compile";
+import { outOfScopeOf } from "../prompts/common";
 import { PERSONA_BRIEFS } from "../prompts/council";
 import { chosenDirection, PERSONAS, type IdeaCard } from "../schema/ideaCard";
 
@@ -35,7 +36,7 @@ ${card.competitors.length ? `| Name | What they solve | Gap | Source |\n|---|---
 ${list(screensOf(card).map((s) => s.title))}
 
 ## Out of scope
-${list(card.outOfScope.value)}
+${list(outOfScopeOf(card))}
 
 ## Constraints
 Team of ${card.constraints.teamSize}, ${card.constraints.deadlineDays} day(s), budget $${card.constraints.budgetUSD}. Skills: ${card.constraints.skills.join(", ") || "none listed"}.

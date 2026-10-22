@@ -39,6 +39,8 @@ export const DirectionSchema = z.object({
   rationale: text(1200),
   citations: z.array(text(500)).max(10).default([]),
   previewHtml: z.string().max(200_000).optional(),
+  /** The kind of bet, shown as the card's tag line, e.g. "NARROW THE USER". */
+  tag: z.string().max(40).optional(),
   /** Added by the user rather than generated. */
   custom: z.boolean().optional(),
 });
@@ -109,6 +111,14 @@ export const ConstraintsSchema = z.object({
 });
 export type Constraints = z.infer<typeof ConstraintsSchema>;
 
+export const ProvenanceSchema = z.object({
+  kind: z.enum(["model", "search", "rules", "mock"]),
+  model: z.string().max(120).optional(),
+  sources: z.number().int().min(0).max(100).optional(),
+  at: z.string().optional(),
+});
+export type Provenance = z.infer<typeof ProvenanceSchema>;
+
 export const STAGES = ["interrogate", "council", "preview", "architecture", "prompt"] as const;
 export type StageId = (typeof STAGES)[number];
 
@@ -135,7 +145,15 @@ export const IdeaCardSchema = z.object({
   compareDirectionId: z.string().nullable().default(null),
   architecture: ArchitectureSchema.nullable(),
   outOfScope: lockable(z.array(text(300)).max(20)),
-  prompt: z.object({ markdown: z.string().max(200_000), target: z.enum(PROMPT_TARGETS) }).nullable(),
+  prompt: z.object({ markdown: z.string().max(200_000), target: z.enum(PROMPT_TARGETS), version: z.number().int().min(1).default(1) }).nullable(),
+  /** Visual archetype for the preview and the prompt; null = neutral component kit. */
+  archetypeId: z.string().max(60).nullable().default(null),
+  /** The direction whose preview the leader approved (cleared when the chosen direction changes). */
+  previewApprovedId: z.string().nullable().default(null),
+  /** Who produced each generated block (keyed by block, e.g. "council", "competitors", "preview"). */
+  provenance: z.record(z.string(), ProvenanceSchema).default({}),
+  /** Human sign-off before compiling: the fingerprint of the plan that was signed. */
+  signoff: z.object({ signedAt: z.string(), fingerprint: z.string() }).nullable().default(null),
   /**
    * For each stage that has run: a fingerprint of the upstream inputs it ran on. A stage is stale when its
    * stored fingerprint no longer matches the current inputs (see lib/stale.ts).
@@ -172,6 +190,10 @@ export function newIdeaCard(raw: string, now = new Date().toISOString()): IdeaCa
     architecture: null,
     outOfScope: emptyLockable([]),
     prompt: null,
+    archetypeId: null,
+    previewApprovedId: null,
+    signoff: null,
+    provenance: {},
     stamps: {},
     readiness: 0,
   };

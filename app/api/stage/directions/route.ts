@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     const generated: Direction[] = out.data.directions.slice(0, count).map((d, i) => ({
       id: `dir-${stamp}-${i + 1}`,
       title: d.title,
+      ...(d.tag ? { tag: d.tag } : {}),
       oneLiner: d.oneLiner,
       rationale: d.rationale,
       // Keep only citations we can trace: a competitor URL we found, or a council persona.

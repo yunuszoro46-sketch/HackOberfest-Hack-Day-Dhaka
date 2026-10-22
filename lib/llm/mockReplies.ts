@@ -86,9 +86,9 @@ registerMock("directions", (req) => {
   const count = Number(/Propose exactly (\d+)/.exec(req.user)?.[1] ?? 3);
   const core = cardLine(req.user, "Core action") || "the core action";
   const all = [
-    { title: "Narrow to one moment", oneLiner: `Only for the exact moment someone needs to ${core.toLowerCase().replace(/\.$/, "")}: open a link, act, done.`, rationale: "Answers the Target User: no install, no sign-up, works from a link in seconds.", citations: ["Target User"] },
-    { title: "Invert the mechanic", oneLiner: "Instead of users searching, the app pushes the one best option the moment it appears.", rationale: "Answers the Skeptical Investor by owning a moment the general tools ignore.", citations: ["Skeptical Investor"] },
-    { title: "Offline-first data", oneLiner: "Ship with a seeded dataset and crowd-confirmed updates instead of live integrations.", rationale: "Answers the Senior Engineer: the data source is the hard part, so remove the dependency.", citations: ["Senior Engineer"] },
+    { tag: "NARROW THE USER", title: "Narrow to one moment", oneLiner: `Only for the exact moment someone needs to ${core.toLowerCase().replace(/\.$/, "")}: open a link, act, done.`, rationale: "Answers the Target User: no install, no sign-up, works from a link in seconds.", citations: ["Target User"] },
+    { tag: "INVERT THE MECHANIC", title: "Invert the mechanic", oneLiner: "Instead of users searching, the app pushes the one best option the moment it appears.", rationale: "Answers the Skeptical Investor by owning a moment the general tools ignore.", citations: ["Skeptical Investor"] },
+    { tag: "REMOVE A DEPENDENCY", title: "Offline-first data", oneLiner: "Ship with a seeded dataset and crowd-confirmed updates instead of live integrations.", rationale: "Answers the Senior Engineer: the data source is the hard part, so remove the dependency.", citations: ["Senior Engineer"] },
   ];
   const kept = /These directions stay[^\n]*\n((?:- .*\n?)*)/.exec(req.user)?.[1] ?? "";
   const fresh = all.filter((d) => !kept.includes(`- ${d.title}:`));
