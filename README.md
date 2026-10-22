@@ -2,6 +2,10 @@
 
 **TeamMate gets you to a prompt you trust. Not to code.**
 
+[![Live demo](https://img.shields.io/badge/Live_demo-open_TeamMate-FFA319?style=for-the-badge&logo=render&logoColor=white&labelColor=181816)](https://hackoberfest-hack-day-dhaka-1.onrender.com/)
+
+**Try it:** https://hackoberfest-hack-day-dhaka-1.onrender.com/ (free hosting: the first visit after a quiet spell can take about a minute to wake up). No key needed to look around: click **Load example** on the home page.
+
 Built for **HackOberfest Hack Day Dhaka** for hackathon participants and solo builders who have an idea but no team. TeamMate does not build your app. It:
 
 1. **interrogates** the idea with five fixed questions,
