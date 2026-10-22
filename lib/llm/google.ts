@@ -49,11 +49,13 @@ export class GoogleProvider implements LlmProvider {
     }
     const cand = res.candidates?.[0];
     const out = (cand?.content?.parts ?? []).filter((p) => !p.thought).map((p) => p.text ?? "").join("");
-    const urls = (cand?.groundingMetadata?.groundingChunks ?? []).map((c) => c.web?.uri).filter((u): u is string => Boolean(u));
+    const sources = (cand?.groundingMetadata?.groundingChunks ?? [])
+      .filter((c) => c.web?.uri)
+      .map((c) => ({ uri: c.web!.uri!, title: c.web!.title ?? "" }));
     return {
       text: out,
       usage: { inputTokens: res.usageMetadata?.promptTokenCount, outputTokens: res.usageMetadata?.candidatesTokenCount },
-      ...(urls.length ? { groundingUrls: urls } : {}),
+      ...(sources.length ? { groundingSources: sources } : {}),
     };
   }
 }

@@ -29,6 +29,27 @@ test("demo path", async ({ page }) => {
   await expect(page.getByRole("button", { name: /Regenerate Core action/ })).toBeDisabled();
   await expect(page.getByTestId("readiness")).toContainText("Readiness 23");
 
+  // 3. Council & Directions → critiques, competitors, three directions → pick one
+  await page.getByRole("button", { name: /Next: Council & Directions/ }).click();
+  await page.getByTestId("run-council").click();
+  await expect(page.locator("[data-persona]")).toHaveCount(3, { timeout: 30_000 });
+  await expect(page.getByTestId("competitors").locator("tbody tr")).toHaveCount(3);
+  await expect(page.getByTestId("no-live-search")).toBeVisible(); // no TAVILY_API_KEY in this run
+  await expect(page.locator("[data-direction]")).toHaveCount(3);
+  await page.getByRole("radio", { name: /Choose Narrow to one moment/ }).check();
+  await expect(page.getByRole("button", { name: /Next: Preview/ })).toBeEnabled();
+  if (process.env.SCREENSHOTS_DIR) await page.screenshot({ path: `${process.env.SCREENSHOTS_DIR}/council.png`, fullPage: true });
+
+  // Upstream edit → downstream stale → regenerate keeps the pick
+  await page.locator('[data-stage="interrogate"]').click();
+  await page.locator("#field-problem").fill("Students lose 20 minutes per exam-week day looking for a quiet room");
+  await expect(page.getByTestId("stale-banner")).toContainText("Council & Directions");
+  await expect(page.locator('[data-stage="council"]')).toHaveAttribute("data-status", "stale");
+  await page.getByRole("button", { name: "Regenerate stale" }).click();
+  await expect(page.getByTestId("stale-banner")).toHaveCount(0, { timeout: 30_000 });
+  await page.locator('[data-stage="council"]').click();
+  await expect(page.getByRole("radio", { name: /Choose Narrow to one moment/ })).toBeChecked();
+
   // autosaved: the home page lists it
   await page.goto("/");
   await expect(page.getByTestId("idea-list")).toContainText(ANSWERS[0]);

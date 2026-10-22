@@ -78,7 +78,9 @@ export function InterrogatorStage({ runner, onDone }: { runner: Runner; onDone: 
             <Textarea id="answer" rows={3} autoFocus value={answers[step]} placeholder={PLACEHOLDERS[step]} maxLength={1000}
               onChange={(e) => setAnswer(step, e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) (last ? build() : setStep(step + 1));
+                if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;
+                if (last) build();
+                else setStep(step + 1);
               }} />
           </div>
           <div className="flex items-center justify-between gap-2">

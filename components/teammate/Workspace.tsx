@@ -14,6 +14,7 @@ import { useStageRun } from "@/lib/client/useStageRun";
 import { stamp, staleStages } from "@/lib/stale";
 import type { StageId } from "@/lib/schema/ideaCard";
 import { summaryTitle } from "@/lib/store/IdeaStore";
+import { CouncilStage } from "./CouncilStage";
 import { InterrogatorStage } from "./InterrogatorStage";
 import { ReadinessBadge } from "./ReadinessBadge";
 import { StageError, StageLoading } from "./StageStatus";
@@ -106,7 +107,8 @@ export function Workspace() {
           {runner.error && <StageError error={runner.error} onRetry={runner.retry} />}
 
           {current === "interrogate" && <InterrogatorStage runner={runner} onDone={() => go("council")} />}
-          {current && current !== "interrogate" && (
+          {current === "council" && <CouncilStage runner={runner} onDone={() => go("preview")} />}
+          {current && current !== "interrogate" && current !== "council" && (
             <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">{stageLabel(current)} is coming in the next build step.</p>
           )}
         </main>

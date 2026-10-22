@@ -17,8 +17,8 @@ export interface TextRequest {
 export interface TextResult {
   text: string;
   usage?: { inputTokens?: number; outputTokens?: number };
-  /** URLs the provider's search grounding actually returned, if any. */
-  groundingUrls?: string[];
+  /** Sources the provider's search grounding actually returned (uri + site title/domain), if any. */
+  groundingSources?: { uri: string; title: string }[];
 }
 
 export interface LlmProvider {

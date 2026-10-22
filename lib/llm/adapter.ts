@@ -36,7 +36,7 @@ export interface Generated<T> {
   raw: string;
   provider: ProviderName;
   model: string;
-  groundingUrls: string[];
+  groundingSources: { uri: string; title: string }[];
 }
 
 const describeIssues = (err: z.ZodError) => err.issues.slice(0, 8).map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`).join("; ");
@@ -47,7 +47,7 @@ export async function generate<T>(opts: GenerateOptions<T>): Promise<Generated<T
   let user = opts.user;
   let lastRaw = "";
   let lastError = "";
-  const urls: string[] = [];
+  const sources: { uri: string; title: string }[] = [];
   for (let attempt = 1; attempt <= 2; attempt++) {
     const req: TextRequest = { stage: opts.stage, system: opts.system, user, json: true, search: opts.search, temperature: opts.temperature, signal: opts.signal };
     const started = Date.now();
@@ -59,7 +59,7 @@ export async function generate<T>(opts: GenerateOptions<T>): Promise<Generated<T
       throw err instanceof LlmError ? err : new LlmError((err as Error).message, 502);
     }
     lastRaw = res.text;
-    urls.push(...(res.groundingUrls ?? []));
+    sources.push(...(res.groundingSources ?? []));
     let parsed: unknown;
     let problem: string | null = null;
     try {
@@ -71,7 +71,7 @@ export async function generate<T>(opts: GenerateOptions<T>): Promise<Generated<T
       const result = opts.schema.safeParse(parsed);
       if (result.success) {
         logStage({ stage: opts.stage, provider: provider.name, model: provider.model, latencyMs: Date.now() - started, ok: true, attempt, ...res.usage });
-        return { data: result.data, raw: res.text, provider: provider.name, model: provider.model, groundingUrls: [...new Set(urls)] };
+        return { data: result.data, raw: res.text, provider: provider.name, model: provider.model, groundingSources: sources };
       }
       problem = `Your JSON did not match the schema: ${describeIssues(result.error)}.`;
     }
