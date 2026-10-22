@@ -61,7 +61,11 @@ export function IdeaProvider({ id, children }: { id: string; children: ReactNode
       .catch((e) => setSaveError((e as Error).message));
   }, [state.card, state.dirty]);
 
-  const update = useCallback((fn: (c: IdeaCard) => IdeaCard) => dispatch({ type: "update", fn }), []);
+  const update = useCallback((fn: (c: IdeaCard) => IdeaCard) => {
+    // Keep latest() current right away, so a stage call started in the same tick sees this change.
+    if (ref.current) ref.current = fn(ref.current);
+    dispatch({ type: "update", fn });
+  }, []);
   const latest = useCallback(() => ref.current, []);
   return <Ctx.Provider value={{ card: state.card, loaded: state.loaded, update, latest, savedAt, saveError }}>{children}</Ctx.Provider>;
 }

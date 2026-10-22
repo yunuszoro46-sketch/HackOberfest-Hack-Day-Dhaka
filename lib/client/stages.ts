@@ -2,6 +2,7 @@
 
 // One function per stage: takes the current card, returns the patch to apply. Used by the stage panels and by
 // "Regenerate stale", which re-runs every stale stage in order.
+import type { DetailBlock } from "../prompts/architecture";
 import type { InterrogateField } from "../prompts/interrogate";
 import type { IdeaCard, StageId } from "../schema/ideaCard";
 import { callStage } from "./api";
@@ -81,8 +82,13 @@ export const withPreview = (card: IdeaCard, r: PreviewResult): IdeaCard => ({
   directions: card.directions.map((d) => (d.id === r.directionId ? { ...d, previewHtml: r.previewHtml } : d)),
 });
 
+export const runArchitecture = (card: IdeaCard, part: "candidates" | "details", blocks?: DetailBlock[]) =>
+  callStage<StagePatch>("architecture", { card, part, blocks });
+
 /** Runners for "Regenerate stale"; filled in as stages are added. */
 export const STALE_RUNNERS: Partial<Record<StageId, (card: IdeaCard) => Promise<Partial<IdeaCard>>>> = {
   council: (card) => runCouncilStage(card, () => {}),
   preview: async (card) => ({ directions: withPreview(card, await runPreview(card)).directions }),
+  // With a stack chosen, re-run its design (locked blocks stay); otherwise re-suggest stacks.
+  architecture: async (card) => (await runArchitecture(card, card.architecture?.chosenId ? "details" : "candidates")).patch,
 };

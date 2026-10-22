@@ -72,6 +72,23 @@ test("demo path", async ({ page }) => {
   await expect(page.locator('[data-testid="preview-frame"]')).toHaveCount(2);
   if (process.env.SCREENSHOTS_DIR) await page.screenshot({ path: `${process.env.SCREENSHOTS_DIR}/preview.png`, fullPage: true });
 
+  // 5. Architecture → pick the recommended stack → diagram, data model, API table
+  await page.getByRole("button", { name: /Next: Architecture/ }).click();
+  await page.getByTestId("suggest-stacks").click();
+  const rows = page.getByTestId("candidates").locator("tbody tr");
+  await expect(rows).toHaveCount(3, { timeout: 30_000 });
+  await expect(rows.first()).toContainText("recommended");
+  await rows.first().getByRole("button", { name: /Choose/ }).click();
+  await expect(page.getByTestId("design")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("mermaid-view").locator("svg")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("sql")).toContainText("create table booking");
+  await expect(page.getByTestId("api-table").locator("tbody tr")).toHaveCount(3);
+  await page.getByRole("button", { name: "Lock Risk register" }).click();
+  await expect(page.getByRole("button", { name: "Regenerate Risk register" })).toBeDisabled();
+  await page.locator("#mermaid-src").fill("flowchart LR\n  A[Phone] --> B[Booking API]");
+  await expect(page.getByTestId("mermaid-view")).toContainText("Booking API");
+  if (process.env.SCREENSHOTS_DIR) await page.screenshot({ path: `${process.env.SCREENSHOTS_DIR}/architecture.png`, fullPage: true });
+
   // autosaved: the home page lists it
   await page.goto("/");
   await expect(page.getByTestId("idea-list")).toContainText(ANSWERS[0]);

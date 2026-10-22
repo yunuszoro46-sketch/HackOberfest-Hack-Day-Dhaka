@@ -111,3 +111,35 @@ registerMock("preview", (req) => {
 <section data-screen="done" data-title="Booked">${nav("StudySpot")}<main class="space-y-3 p-4"><div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><h3 class="font-medium text-slate-900">Booked: Library 2.14</h3><p class="mt-1 text-sm text-slate-600">Today 14:00–15:00 · 3 people · code 4821</p></div><div class="rounded-xl border border-dashed border-slate-300 p-8 text-center"><p class="font-medium">No other bookings today</p><p class="mt-1 text-sm text-slate-500">Free rooms appear on Home.</p></div><button type="button" data-goto="home" class="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white">Back to rooms</button></main></section>
 </div></body></html>`;
 });
+
+registerMock("architecture-candidates", () =>
+  JSON.stringify({
+    candidates: [
+      { name: "Supabase + Vue", stack: ["Vue 3", "Supabase (Postgres, auth)", "Netlify"], scores: { speed: 4, fit: 4, skills: 2, cost: 5, hackathon: 4 }, why: "Hosted Postgres with realtime out of the box.", whyNot: "The builder listed React, not Vue." },
+      { name: "Next.js + SQLite", stack: ["Next.js 15", "SQLite (Turso)", "Vercel"], scores: { speed: 5, fit: 4, skills: 5, cost: 5, hackathon: 5 }, why: "One repo, one deploy, matches React + TypeScript skills.", whyNot: "Realtime availability needs polling or a hosted SQLite with webhooks." },
+      { name: "Express API + React SPA", stack: ["React (Vite)", "Express", "Postgres (Neon)", "Render"], scores: { speed: 3, fit: 4, skills: 4, cost: 4, hackathon: 3 }, why: "Clear client/server split.", whyNot: "Two deploys and CORS for a two-day build." },
+    ],
+  }),
+);
+
+registerMock("architecture-details", () =>
+  JSON.stringify({
+    diagramMermaid: "flowchart LR\n  U[Student browser] --> W[Next.js app]\n  W --> A[API routes]\n  A --> D[(SQLite: rooms, bookings)]\n  A --> S[Room sensor feed]",
+    dataModel: [
+      { name: "Room", fields: [{ name: "id", type: "uuid", note: "" }, { name: "name", type: "text", note: "e.g. Library 2.14" }, { name: "capacity", type: "int", note: "" }], relations: [] },
+      { name: "Booking", fields: [{ name: "id", type: "uuid", note: "" }, { name: "roomId", type: "uuid", note: "" }, { name: "startsAt", type: "timestamp", note: "" }, { name: "endsAt", type: "timestamp", note: "" }, { name: "people", type: "int", note: "" }], relations: ["Booking.roomId -> Room.id"] },
+    ],
+    apiSurface: [
+      { method: "GET", path: "/api/rooms?free=now", request: "", response: "Room[] with freeUntil", note: "Main screen" },
+      { method: "POST", path: "/api/bookings", request: "{ roomId, startsAt, endsAt, people }", response: "Booking", note: "409 on overlap" },
+      { method: "DELETE", path: "/api/bookings/:id", request: "", response: "204", note: "Cancel" },
+    ],
+    services: [{ name: "Turso", reason: "Hosted SQLite for the bookings table", freeTier: "Free tier covers a demo" }],
+    deployment: { target: "Vercel", estCostPerMonth: 0, estHoursToFirstDeploy: 1 },
+    risks: [
+      { risk: "Two people book the same room at once", likelihood: "medium", mitigation: "Check overlap inside a transaction; return 409" },
+      { risk: "Sensor data is missing during the demo", likelihood: "high", mitigation: "Seed rooms and fall back to booking-based availability" },
+      { risk: "Time zones shift bookings", likelihood: "low", mitigation: "Store UTC, show campus local time" },
+    ],
+  }),
+);
