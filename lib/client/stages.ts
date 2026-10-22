@@ -3,6 +3,7 @@
 // One function per stage: takes the current card, returns the patch to apply. Used by the stage panels and by
 // "Regenerate stale", which re-runs every stale stage in order.
 import type { DetailBlock } from "../prompts/architecture";
+import { compilePrompt } from "../prompts/compile";
 import type { InterrogateField } from "../prompts/interrogate";
 import type { IdeaCard, StageId } from "../schema/ideaCard";
 import { callStage } from "./api";
@@ -91,4 +92,9 @@ export const STALE_RUNNERS: Partial<Record<StageId, (card: IdeaCard) => Promise<
   preview: async (card) => ({ directions: withPreview(card, await runPreview(card)).directions }),
   // With a stack chosen, re-run its design (locked blocks stay); otherwise re-suggest stacks.
   architecture: async (card) => (await runArchitecture(card, card.architecture?.chosenId ? "details" : "candidates")).patch,
+  // The prompt is template-compiled in the browser; recompiling replaces manual edits to the Markdown.
+  prompt: async (card) => {
+    const target = card.prompt?.target ?? "claude-code";
+    return { prompt: { target, markdown: compilePrompt(card, target) } };
+  },
 };

@@ -18,6 +18,7 @@ import { ArchitectureStage } from "./ArchitectureStage";
 import { CouncilStage } from "./CouncilStage";
 import { InterrogatorStage } from "./InterrogatorStage";
 import { PreviewStage } from "./PreviewStage";
+import { PromptStage } from "./PromptStage";
 import { ReadinessBadge } from "./ReadinessBadge";
 import { StageError, StageLoading } from "./StageStatus";
 import { Stepper } from "./Stepper";
@@ -112,9 +113,7 @@ export function Workspace() {
           {current === "council" && <CouncilStage runner={runner} onDone={() => go("preview")} />}
           {current === "preview" && <PreviewStage runner={runner} onDone={() => go("architecture")} />}
           {current === "architecture" && <ArchitectureStage runner={runner} onDone={() => go("prompt")} />}
-          {current === "prompt" && (
-            <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">{stageLabel(current)} is coming in the next build step.</p>
-          )}
+          {current === "prompt" && <PromptStage />}
         </main>
       </div>
     </div>

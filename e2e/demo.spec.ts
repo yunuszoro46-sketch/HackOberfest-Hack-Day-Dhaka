@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import JSZip from "jszip";
 import { expect, test } from "@playwright/test";
 
 const IDEA = "Students on my campus waste time walking around looking for a free study room. I want an app that shows which rooms are free right now and lets them book one.";
@@ -9,7 +11,8 @@ const ANSWERS = [
   "Not a calendar app, no payments",
 ];
 
-test("demo path", async ({ page }) => {
+test("demo path", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   // 1. Home → New idea → paste a paragraph
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "TeamMate gets you to a prompt you trust — not to code." })).toBeVisible();
@@ -88,6 +91,26 @@ test("demo path", async ({ page }) => {
   await page.locator("#mermaid-src").fill("flowchart LR\n  A[Phone] --> B[Booking API]");
   await expect(page.getByTestId("mermaid-view")).toContainText("Booking API");
   if (process.env.SCREENSHOTS_DIR) await page.screenshot({ path: `${process.env.SCREENSHOTS_DIR}/architecture.png`, fullPage: true });
+
+  // 6. Prompt → toggle to Claude Code → copy → download bundle
+  await page.getByRole("button", { name: /Next: Prompt/ }).click();
+  await page.getByTestId("compile").click();
+  await page.locator('[data-target="generic"]').click();
+  await expect(page.locator("#prompt-md")).toHaveValue(/^# Build prompt: Narrow to one moment/);
+  await page.locator('[data-target="claude-code"]').click();
+  await expect(page.locator("#prompt-md")).toHaveValue(/^# Build prompt for Claude Code: /);
+  await expect(page.locator("#prompt-md")).toHaveValue(/## CLAUDE\.md/);
+  await page.getByTestId("copy-prompt").click();
+  await expect(page.getByTestId("copy-prompt")).toContainText("Copied");
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/^# Build prompt for Claude Code/);
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByTestId("download-bundle").click()]);
+  expect(download.suggestedFilename()).toBe("narrow-to-one-moment-bundle.zip");
+  const zip = await JSZip.loadAsync(fs.readFileSync((await download.path())!));
+  expect(Object.keys(zip.files).sort()).toEqual(["ARCHITECTURE.md", "CLAUDE.md", "PRD.md", "PROMPT.md", "idea-card.json", "preview.html"]);
+  expect(await zip.file("PROMPT.md")!.async("string")).toMatch(/^# Build prompt for Claude Code/);
+  expect(await zip.file("preview.html")!.async("string")).toContain('data-screen="home"');
+  await expect(page.getByTestId("readiness")).toContainText(/Readiness (8\d|9\d|100)/);
+  if (process.env.SCREENSHOTS_DIR) await page.screenshot({ path: `${process.env.SCREENSHOTS_DIR}/prompt.png`, fullPage: true });
 
   // autosaved: the home page lists it
   await page.goto("/");
