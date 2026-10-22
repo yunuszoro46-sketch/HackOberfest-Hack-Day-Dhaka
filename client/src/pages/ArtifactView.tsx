@@ -42,7 +42,37 @@ export default function ArtifactView() {
                 {qa && <QaInspector qa={qa} />}
 
                 <section className="card overflow-hidden" aria-label="File content">
-                  <p className="panel-head kicker">{qa ? 'Full report' : 'Content'}</p>
+                  <div className="panel-head flex items-center justify-between">
+                    <span className="kicker">{qa ? 'Full report' : 'Content'}</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(d.content);
+                        }}
+                        className="btn-ghost btn-sm text-2xs font-mono"
+                        title="Copy file content to clipboard"
+                      >
+                        Copy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const blob = new Blob([d.content], { type: 'text/plain;charset=utf-8' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          link.href = url;
+                          link.download = d.path.split('/').pop() || 'artifact.txt';
+                          link.click();
+                          URL.revokeObjectURL(url);
+                        }}
+                        className="btn-ghost btn-sm text-2xs font-mono"
+                        title="Download file locally"
+                      >
+                        Download
+                      </button>
+                    </div>
+                  </div>
                   <pre className="max-h-[70vh] overflow-auto p-0 font-mono text-xs leading-relaxed" data-testid="artifact-content" tabIndex={0}>
                     <code className="block min-w-max py-3">
                       {lines.map((l, i) => (

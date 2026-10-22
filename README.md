@@ -40,6 +40,14 @@ Traditional chat-based AI tools are useful for individual questions, but they do
 - **Continue after restarts:** Project state, tasks, artifacts, and activity are persisted in SQLite.
 - **Use mobile supervision:** Monitor runs and manage decisions from a phone-sized interface.
 
+## Interface
+
+The app uses the **TEAM:MATE console design**: an amber-on-black palette with LCD-style readouts and hexagon identity, in **Console** and **Dim (3 a.m.)** themes.
+- `/` is the planning workspace. It takes an idea through assess, explore, plan, approve, and generate a prompt.
+- `/dashboard` and `/projects/...` hold the supervised AI team projects.
+- `/teammate` explains how TeamMate works.
+- Press **⌘K / Ctrl+K** anywhere to open the command palette.
+
 ## How It Works
 
 1. **Create a project.** Set a goal and define constraints.

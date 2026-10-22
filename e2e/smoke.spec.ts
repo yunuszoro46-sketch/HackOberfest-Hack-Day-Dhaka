@@ -83,7 +83,10 @@ async function mockIdeaRuns(page: Page) {
 }
 
 test('landing → create → team → command → QA report says PASS', async ({ page }) => {
+  // Home is the TEAM:MATE planning workspace; the team overview is one click away.
   await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Define the Core Concept & Parameters' })).toBeVisible();
+  await page.getByRole('link', { name: 'How it works' }).click();
   await expect(page.getByRole('heading', { name: /Build with AI teammates/ })).toBeVisible();
   if (shots) await page.screenshot({ path: `${shots}/1-landing.png` });
   await page.getByRole('link', { name: 'Build Your Team' }).click();
@@ -182,7 +185,7 @@ test('workspace has no horizontal scroll at 375px', async ({ page }) => {
   const p = await res.json();
   await page.request.put(`/api/projects/${p.id}/agents`, { data: { agents: [{ role: 'frontend' }, { role: 'qa' }] } });
   await page.request.post(`/api/projects/${p.id}/commands`, { data: { text: DEMO } });
-  for (const path of ['/', '/dashboard', '/ideas', `/projects/${p.id}`, `/projects/${p.id}/agents`, `/projects/${p.id}/context`]) {
+  for (const path of ['/', '/teammate', '/dashboard', '/ideas', `/projects/${p.id}`, `/projects/${p.id}/agents`, `/projects/${p.id}/context`, `/projects/${p.id}/supervise`]) {
     await page.goto(path);
     await page.waitForLoadState('networkidle');
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

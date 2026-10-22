@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Activity, ArrowRightLeft, FileCode2, Flag, Inbox, ListTodo, Terminal, UserCheck } from 'lucide-react';
+import { Activity, ArrowRightLeft, Download, FileCode2, Flag, Inbox, ListTodo, Terminal, UserCheck } from 'lucide-react';
 import { clock } from '../../hooks';
 import { StatusBadge } from '../ui';
 import { TASK_STATUSES, type ActivityEvent, type ActivityType, type TaskStatus } from '../../../../shared/types';
@@ -30,12 +30,53 @@ const isStatus = (v: unknown): v is TaskStatus => typeof v === 'string' && (TASK
 export function ActivityStream({ events }: { events: ActivityEvent[] }) {
   const [filter, setFilter] = useState<Filter>('all');
   const shown = filter === 'all' ? events : events.filter((e) => GROUP[e.type] === filter);
+
+  const handleExportAudit = () => {
+    const payload = {
+      auditMetadata: {
+        schemaVersion: '1.0.0',
+        exportedAt: new Date().toISOString(),
+        system: 'TeamMate Agent Supervision Audit',
+        recordCount: events.length,
+        filterApplied: filter,
+      },
+      events: events.map((e) => ({
+        id: e.id,
+        projectId: e.projectId,
+        taskId: e.taskId,
+        type: e.type,
+        actor: e.actor,
+        message: e.message,
+        data: e.data,
+        createdAt: e.createdAt,
+      })),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `teammate-activity-audit-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+
   return (
     <section className="card flex max-h-[70vh] flex-col" aria-labelledby="stream-h">
-      <div className="panel-head">
+      <div className="panel-head flex items-center gap-2">
         <Activity className="h-4 w-4 text-mute" aria-hidden />
         <h2 id="stream-h" className="text-sm font-medium">Activity</h2>
-        <span className="ml-auto font-mono text-2xs text-mute">{shown.length} event{shown.length === 1 ? '' : 's'}</span>
+        <span className="font-mono text-2xs text-mute">{shown.length} event{shown.length === 1 ? '' : 's'}</span>
+        <button
+          type="button"
+          onClick={handleExportAudit}
+          title="Export activity & incident logs to JSON file for local audit"
+          className="ml-auto inline-flex min-h-8 items-center gap-1 rounded border border-line px-2 py-0.5 font-mono text-2xs uppercase text-mute hover:border-[var(--brand)] hover:text-ink active:scale-[0.98] transition-all"
+        >
+          <Download className="h-3 w-3" aria-hidden />
+          <span>Audit JSON</span>
+        </button>
       </div>
       <div className="flex flex-wrap gap-1 border-b border-line-soft px-3 py-2" role="group" aria-label="Filter activity">
         {FILTERS.map((f) => (

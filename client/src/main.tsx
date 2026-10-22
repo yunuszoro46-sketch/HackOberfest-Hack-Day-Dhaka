@@ -13,13 +13,18 @@ import ArtifactView from './pages/ArtifactView';
 import NotFound from './pages/NotFound';
 import Supervise from './pages/Supervise';
 import IdeaMate from './pages/IdeaMate';
+import { TeamMateWorkspace } from './pages/TeamMateWorkspace';
+import { CommandPalette } from './components/CommandPalette';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
+      <CommandPalette />
       <Routes>
+        <Route path="/" element={<TeamMateWorkspace />} />
+        <Route path="/plan" element={<TeamMateWorkspace />} />
         <Route element={<Layout />}>
-          <Route path="/" element={<Landing />} />
+          <Route path="/teammate" element={<Landing />} />
           <Route path="/ideas" element={<IdeaMate />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/projects/new" element={<CreateProject />} />
