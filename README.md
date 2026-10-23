@@ -2,7 +2,7 @@
 
 **TeamMate gets you to a prompt you trust. Not to code.**
 
-[![Live demo](https://img.shields.io/badge/Live_demo-open_TeamMate-FFA319?style=for-the-badge&logo=render&logoColor=white&labelColor=181816)](https://hackoberfest-hack-day-dhaka-1.onrender.com/)
+[![Live demo](https://img.shields.io/badge/Live_demo-open_TeamMate-FFA319?style=for-the-badge&logo=render&logoColor=white&labelColor=181816)](https://hackoberfest-hack-day-dhaka-1.onrender.com/) [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge&labelColor=181816)](LICENSE)
 
 **Try it:** https://hackoberfest-hack-day-dhaka-1.onrender.com/ (free hosting: the first visit after a quiet spell can take about a minute to wake up). No key needed to look around: click **Load example** on the home page.
 
@@ -191,3 +191,7 @@ Code generation, deploying your app, multi-user teams, authentication, cloud per
 ## History
 
 The earlier TeamMate (a supervised multi-agent workspace on Express and Vite) is preserved on the `legacy-teammate` branch.
+
+## License
+
+[MIT](LICENSE) © 2026 yunuszoro46-sketch. The browser libraries in `public/preview-vendor/` (React, ReactDOM, htm, Tailwind) are MIT-licensed by their authors; versions are listed in `VERSIONS.txt` there.
