@@ -188,9 +188,7 @@ The look follows the TeamMate design prompt: a dark instrument console with one 
 
 Code generation, deploying your app, multi-user teams, authentication, cloud persistence (the interface only), a command palette, agent orchestration, ops/incident features, more than 3 directions or 5 preview screens, and chat-style conversation at any stage.
 
-## History
 
-The earlier TeamMate (a supervised multi-agent workspace on Express and Vite) is preserved on the `legacy-teammate` branch.
 
 ## License
 
